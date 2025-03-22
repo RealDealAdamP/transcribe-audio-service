@@ -33,6 +33,7 @@ python transcribe-audio-service.py
 
 📁 Project Structure
 transcribe-audio-service/
+
 ├── transcribe-audio-service.py  # Main application file
 ├── requirements.txt # Python dependencies
 ├── README.md
@@ -42,6 +43,7 @@ Python 3.9 or later
 ffmpeg installed and in your system PATH (required by Whisper)
 
 🧠 Whisper Model Specs
+
 Model	Size	Parameters	VRAM Required	Relative Speed	English-only	Multilingual
 tiny	~39 MB	39M	~1 GB	~10× faster	✅ tiny.en	✅ tiny
 base	~74 MB	74M	~1 GB	~7× faster	✅ base.en	✅ base
@@ -51,6 +53,7 @@ large	~1.55 GB	1550M	~10 GB	1× (baseline)	❌	✅ large
 turbo†	~809 MB	809M	~6 GB	~8× faster	❌	✅ turbo
 
 📦 Dependencies
+
 openai-whisper
 ffmpeg (external dependency)
 ttkbootstrap
