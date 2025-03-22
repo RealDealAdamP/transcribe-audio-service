@@ -169,12 +169,12 @@ class TranscribeAudioService:
             messagebox.showinfo("Info", "Transcribe Audio Service is not currently active.")
 
     def populate_queue(self, directory):
-        """Lists .mp3 and .wav files, checking if transcriptions exist."""
+        """Lists .mp3, .m4a, and .wav files, checking if transcriptions exist."""
         self.listbox_queue.delete(0, tk.END)
         self.status_queue.delete(0, tk.END)
 
         for file in os.listdir(directory):
-            if file.lower().endswith((".mp3", ".wav")):
+            if file.lower().endswith((".mp3",".m4a", ".wav")):
                 audio_path = os.path.join(directory, file)
                 transcript_path = os.path.join(directory, f"{os.path.splitext(file)[0]}.txt")
 
