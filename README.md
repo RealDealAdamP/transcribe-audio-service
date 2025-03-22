@@ -18,7 +18,6 @@ It batch-converts audio files (`.mp3`, `.wav`) into readable text using OpenAI�
 ⚙️ Getting Started (Run from Source)
 
 1. Clone the repository
-```bash
 git clone https://github.com/yourname/transcribe-audio-service.git
 cd transcribe-audio-service
 
