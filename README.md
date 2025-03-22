@@ -36,8 +36,8 @@ python transcribe-audio-service.py
 📁 Project Structure
 transcribe-audio-service/
 
-transcribe-audio-service.py  # Main application file
-requirements.txt # Python dependencies
+transcribe-audio-service.py 
+requirements.txt 
 README.md
 
 ---
