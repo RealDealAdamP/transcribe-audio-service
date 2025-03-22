@@ -1,0 +1,5 @@
+openai-whisper
+ttkbootstrap
+
+# System dependency:
+# Requires ffmpeg to be installed and added to PATH
