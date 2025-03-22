@@ -1,11 +1,11 @@
-# Transcribe Audio Service
+Transcribe Audio Service
 
-**Transcribe Audio Service** is a lightweight, standalone transcription tool for Windows.  
+Transcribe Audio Service is a lightweight, standalone transcription tool for Windows.  
 It batch-converts audio files (`.mp3`, `.wav`) into readable text using OpenAI’s Whisper model — no technical setup required.
 
 ---
 
-## 🚀 Features
+🚀 Features
 
 - 🎯 Simple, intuitive desktop interface
 - 🔁 Batch processing of large audio folders
@@ -15,30 +15,30 @@ It batch-converts audio files (`.mp3`, `.wav`) into readable text using OpenAI�
 
 ---
 
-## ⚙️ Getting Started (Run from Source)
+⚙️ Getting Started (Run from Source)
 
-### 1. Clone the repository
+1. Clone the repository
 ```bash
 git clone https://github.com/yourname/transcribe-audio-service.git
 cd transcribe-audio-service
 
-### 2. Create Virtual environment
+2. Create Virtual environment
 python -m venv venv
 venv\Scripts\activate  # On Windows
 
-### 3. Install dependencies
+3. Install dependencies
 pip install -r requirements.txt
 
-### 4. Run the app
+4. Run the app
 python transcribe-audio-service.py
 
-##📁 Project Structure
+📁 Project Structure
 transcribe-audio-service/
 ├── transcribe-audio-service.py  # Main application file
 ├── requirements.txt # Python dependencies
 ├── README.md
 
-##🧾 Requirements
+🧾 Requirements
 Python 3.9 or later
 ffmpeg installed and in your system PATH (required by Whisper)
 
@@ -51,14 +51,14 @@ medium	~769 MB	769M	~5 GB	~2× faster	✅ medium.en	✅ medium
 large	~1.55 GB	1550M	~10 GB	1× (baseline)	❌	✅ large
 turbo†	~809 MB	809M	~6 GB	~8× faster	❌	✅ turbo
 
-##📦 Dependencies
+📦 Dependencies
 openai-whisper
 ffmpeg (external dependency)
 ttkbootstrap
 tkinter (standard library)
 torch (automatically installed with Whisper)
 
-#📃 License
+📃 License
 MIT License
 
 🙌 Acknowledgements
