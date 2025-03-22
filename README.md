@@ -37,7 +37,9 @@ python transcribe-audio-service.py
 transcribe-audio-service/
 
 transcribe-audio-service.py 
+
 requirements.txt 
+
 README.md
 
 ---
@@ -63,9 +65,13 @@ turbo†	~809 MB	809M	~6 GB	~8× faster	❌	✅ turbo
 📦 Dependencies
 
 openai-whisper
+
 ffmpeg (external dependency)
+
 ttkbootstrap
+
 tkinter (standard library)
+
 torch (automatically installed with Whisper)
 
 ---
@@ -78,6 +84,9 @@ MIT License
 🙌 Acknowledgements
 
 OpenAI Whisper
+
 ttkbootstrap
+
 PyTorch
+
 ffmpeg
