@@ -1,7 +1,7 @@
 Transcribe Audio Service
 
 Transcribe Audio Service is a lightweight, standalone transcription tool for Windows.  
-It batch-converts audio files (`.mp3`, `.wav`) into readable text using OpenAI’s Whisper model — no technical setup required.
+It batch-converts audio files (`.mp3`,`.m4a`, and `.wav`) into readable text using OpenAI’s Whisper model — no technical setup required.
 
 ---
 
@@ -11,7 +11,7 @@ It batch-converts audio files (`.mp3`, `.wav`) into readable text using OpenAI�
 - 🔁 Batch processing of large audio folders
 - 🧠 Powered by OpenAI’s Whisper model (local inference)
 - 💻 Fully offline — no cloud upload required
-- ✅ Supports `.mp3` and `.wav` formats
+- ✅ Supports `.mp3` ,`.m4a`, and `.wav` formats
 
 ---
 
