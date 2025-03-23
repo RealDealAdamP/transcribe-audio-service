@@ -135,6 +135,9 @@ class TranscribeAudioService:
         self.status_animation_running = False
         self.status_animation_index = 0
 
+        #Error Log Dict
+        self.error_messages = {}  # filename -> error message
+
     def browse_directory(self):
         """Populates the queue with files and assigns initial statuses."""
 
@@ -277,8 +280,12 @@ class TranscribeAudioService:
 
                 except Exception as e:
                     #If transcription fails, mark as "Error"
+                    error_msg = str(e)
                     self.status_queue.delete(i)
                     self.status_queue.insert(i, "Error")
+                    self.error_messages[filename] = error_msg  # Store error message
+
+
         if any_transcribed:
             self.status_animation_running = False
             self.service_status.config(text="Service is currently Stopped")
@@ -302,6 +309,9 @@ class TranscribeAudioService:
         if status == "Completed" and os.path.exists(transcript_path):
             with open(transcript_path, "r", encoding="utf-8") as f:
                 self.output_box.insert(tk.END, f.read())
+        elif status == "Error":
+            error_msg = self.error_messages.get(filename, "An unknown error occurred.")
+            self.output_box.insert(tk.END, f"Transcription Error:\n{error_msg}")
         else:
             self.output_box.insert(tk.END, "No Transcription Detected")
 
