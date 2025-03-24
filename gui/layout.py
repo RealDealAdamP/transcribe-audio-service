@@ -129,9 +129,41 @@ class TranscribeAudioService:
         if self.transcribe_thread and self.transcribe_thread.is_alive():
             messagebox.showinfo("Info", "Transcription already in progress.")
             return
+
         if not self.dir_var.get():
             messagebox.showerror("Error", "Please select a directory first.")
             return
+
+        if self.listbox_queue.size() == 0:
+            messagebox.showerror("Error", "There are no audio files in the queue.")
+            return
+
+        # Check statuses
+        all_completed = True
+        any_retriable = False
+
+        for i in range(self.status_queue.size()):
+            status = self.status_queue.get(i)
+            if status in ("In Queue", "Error"):
+                all_completed = False
+                any_retriable = True
+                break
+
+        if all_completed:
+            messagebox.showinfo("Info", "All audio files have transcribed successfully.")
+            return
+
+        if not any_retriable:
+            messagebox.showerror("Error", "No transcribable files available.")
+            return
+
+        # Reset 'Error' files to 'In Queue' for retry
+        for i in range(self.status_queue.size()):
+            if self.status_queue.get(i) == "Error":
+                self.status_queue.delete(i)
+                self.status_queue.insert(i, "In Queue")
+
+        # Begin processing
         self.stop_requested = False
         self.status_animation_running = True
         self.status_animation_index = 0
@@ -144,14 +176,18 @@ class TranscribeAudioService:
         model_name = self.model_var.get()
         language = self.lang_var.get()
 
+        any_transcribed = False
+
         for i in range(self.listbox_queue.size()):
             if self.stop_requested:
                 self.status_animation_running = False
                 self.service_status.config(text="Service is currently Stopped")
+                messagebox.showinfo("Stopped", "The Active Transcriber Service has been stopped.")
                 return
 
             filename = self.listbox_queue.get(i)
             status = self.status_queue.get(i)
+
             if status != "In Queue":
                 continue
 
@@ -163,10 +199,17 @@ class TranscribeAudioService:
             self.root.update_idletasks()
 
             result = transcribe_file(file_path, model_name, language)
+
             if "text" in result:
-                save_transcript(output_path, result["text"])
-                self.status_queue.delete(i)
-                self.status_queue.insert(i, "Completed")
+                try:
+                    save_transcript(output_path, result["text"])
+                    self.status_queue.delete(i)
+                    self.status_queue.insert(i, "Completed")
+                    any_transcribed = True
+                except Exception as e:
+                    self.status_queue.delete(i)
+                    self.status_queue.insert(i, "Error")
+                    self.error_messages[filename] = f"Failed to save transcript: {str(e)}"
             else:
                 self.status_queue.delete(i)
                 self.status_queue.insert(i, "Error")
@@ -174,7 +217,9 @@ class TranscribeAudioService:
 
         self.status_animation_running = False
         self.service_status.config(text="Service is currently Stopped")
-        messagebox.showinfo("Success", "All audio files have been transcribed.")
+
+        if any_transcribed:
+            messagebox.showinfo("Success", "All audio files have been transcribed.")
 
     def stop_transcription(self):
         if self.transcribe_thread and self.transcribe_thread.is_alive():
