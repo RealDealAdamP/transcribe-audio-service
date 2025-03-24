@@ -29,17 +29,28 @@ venv\Scripts\activate  # On Windows
 pip install -r requirements.txt
 
 4. Run the app
-python transcribe-audio-service.py
+python main.py
 
 ---
 
 📁 Project Structure
 transcribe-audio-service/
 
-transcribe-audio-service.py 
+├── main.py
+├── gui/
+│   ├── __init__.py
+│   ├── app.py               # launch the GUI
+│   ├── layout.py            # GUI layout & TranscribeAudioService class
+│   ├── components.py        # (optional) reusable UI elements
+├── services/
+│   ├── __init__.py
+│   ├── ffmpeg_check.py      # check if ffmpeg is installed
+│   ├── transcription.py     # whisper logic & audio utils
+│   ├── utils.py             # general helper methods
 
+.gitignore
+LICENSE
 requirements.txt 
-
 README.md
 
 ---

@@ -172,3 +172,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Whisper app-specific
+*.txt                      # output transcripts
+*.mp3
+*.m4a
+*.wav                     # audio files (user data)
+.whisper/                 # whisper download/cache directory if it exists
+transcribe_audio_service/**/__pycache__/  # redundant safety for submodules
