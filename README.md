@@ -33,6 +33,7 @@ python main.py
 
 ---
 
+<pre>
 📁 Project Structure
 transcribe-audio-service/
 
@@ -52,7 +53,7 @@ transcribe-audio-service/
 LICENSE
 requirements.txt 
 README.md
-
+</pre>
 ---
 
 🧾 Requirements
@@ -62,7 +63,7 @@ ffmpeg installed and in your system PATH (required by Whisper)
 ---
 
 🧠 Whisper Model Specs
-
+<pre>
 Model	Size	Parameters	VRAM Required	Relative Speed	English-only	Multilingual
 tiny	~39 MB	39M	~1 GB	~10× faster	✅ tiny.en	✅ tiny
 base	~74 MB	74M	~1 GB	~7× faster	✅ base.en	✅ base
@@ -70,7 +71,7 @@ small	~244 MB	244M	~2 GB	~4× faster	✅ small.en	✅ small
 medium	~769 MB	769M	~5 GB	~2× faster	✅ medium.en	✅ medium
 large	~1.55 GB	1550M	~10 GB	1× (baseline)	❌	✅ large
 turbo†	~809 MB	809M	~6 GB	~8× faster	❌	✅ turbo
-
+</pre>
 ---
 
 📦 Dependencies
