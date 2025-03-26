@@ -14,7 +14,7 @@ def get_model(model_name):
         _model_cache[model_name] = whisper.load_model(model_name)
     return _model_cache[model_name]
 
-def transcribe_file(file_path, model_name="medium", language="en"):
+def transcribe_file(file_path, model_name="medium", language="en", return_segments=False):
     """
     Transcribes a single audio file using the specified Whisper model and language.
 
@@ -22,14 +22,24 @@ def transcribe_file(file_path, model_name="medium", language="en"):
         file_path (str): Path to the audio file.
         model_name (str): Whisper model name ("base", "small", "medium", "large").
         language (str): Language code (e.g., "en", "es").
+        return_segments (bool): If True, include segment-level results (for diarization).
 
     Returns:
-        dict: {"text": "..."} on success or {"error": "..."} on failure.
+        dict: Contains at least 'text'. May include 'segments' if requested.
     """
     try:
         model = get_model(model_name)
         result = model.transcribe(file_path, language=language)
-        return {"text": result["text"]}
+
+        response = {
+            "text": result["text"]
+        }
+
+        if return_segments and "segments" in result:
+            response["segments"] = result["segments"]
+
+        return response
+
     except Exception as e:
         return {"error": str(e)}
 
