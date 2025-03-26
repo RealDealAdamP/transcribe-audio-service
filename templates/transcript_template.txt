@@ -1,0 +1,8 @@
+Audio File Name: {Audio File Name}
+Audio File Creation Date: {Audio File Creation Date}
+Audio File Length: {Audio File Length}
+Audio File Item Type: {Audio File Item Type}
+Transcription Date: {Transcription Date}
+
+Transcription Text:
+{Transcription Text}

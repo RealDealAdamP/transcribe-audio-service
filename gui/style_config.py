@@ -7,8 +7,8 @@ def get_theme_style():
     """
     Creates and returns the ttkbootstrap style + shared font config.
     """
-    style = ttk.Style("solar")  # You could later pass this dynamically
-    icon_font = tkfont.Font(size=12, weight="bold")
+    style = ttk.Style("darkly")  # You could later pass this dynamically
+    icon_font = tkfont.Font(size=14, weight="bold")
     return style, icon_font
 
 def get_bootstyles():

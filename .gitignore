@@ -177,6 +177,12 @@ cython_debug/
 # Whisper app-specific ignored files
 # ───────────────────────────────────────
 
+# ───────────────────────────────────────
+# Do NOT ignore static template files
+# ───────────────────────────────────────
+!transcribe_audio_service/templates/
+!transcribe_audio_service/templates/transcript_template.*
+
 # Output transcripts (user-generated)
 *.txt
 *.json
@@ -195,7 +201,3 @@ cython_debug/
 __pycache__/
 transcribe_audio_service/**/__pycache__/
 
-# ───────────────────────────────────────
-# Do NOT ignore static template files
-# ───────────────────────────────────────
-!transcribe_audio_service/templates/transcript_template.*
