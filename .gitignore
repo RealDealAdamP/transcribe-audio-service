@@ -173,10 +173,29 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Whisper app-specific
-*.txt                      # output transcripts
+# ───────────────────────────────────────
+# Whisper app-specific ignored files
+# ───────────────────────────────────────
+
+# Output transcripts (user-generated)
+*.txt
+*.json
+*.csv
+*.xml
+
+# Input audio files (user-generated)
 *.mp3
 *.m4a
-*.wav                     # audio files (user data)
-.whisper/                 # whisper download/cache directory if it exists
-transcribe_audio_service/**/__pycache__/  # redundant safety for submodules
+*.wav
+
+# Whisper model cache
+.whisper/
+
+# Python cache directories
+__pycache__/
+transcribe_audio_service/**/__pycache__/
+
+# ───────────────────────────────────────
+# Do NOT ignore static template files
+# ───────────────────────────────────────
+!transcribe_audio_service/templates/transcript_template.*
