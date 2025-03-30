@@ -7,6 +7,7 @@ from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
 import re
 from services.constants import LANGUAGE_MAP
+import torch
 
 def _expand_key(compact_key):
     """
@@ -21,7 +22,7 @@ def get_lang_name(code):
             return name
     return code  # fallback to code if no match found
 
-def get_transcription_metadata(file_path, input_language, output_language, model_used):
+def get_transcription_metadata(file_path, input_language, output_language, model_used, processing_device=None):
     """Returns categorized metadata for the transcription process."""
 
     # Get basic file properties
@@ -70,11 +71,12 @@ def get_transcription_metadata(file_path, input_language, output_language, model
         "Output": {
             "Transcription Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Whisper Model": model_used,
+            "Whisper Processing Device": processing_device or "Unknown",
             "Output Text Language": output_language
         }
     }
 
-def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",model_used=None, output_format="txt"):
+def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",model_used=None,processing_device=None, output_format="txt"):
     """
     Save the transcription output to various formats using the provided template.
 
@@ -87,7 +89,7 @@ def save_transcript(output_path, text, template, input_file=None, input_language
         output_language (str): Language code of the output transcript.
         output_format (str): One of 'txt', 'json', 'csv', 'xml'.
     """
-    metadata = get_transcription_metadata(input_file, input_language, output_language, model_used) if input_file else {}
+    metadata = get_transcription_metadata(input_file, input_language, output_language, model_used, processing_device) if input_file else {}
 
     # Flatten nested metadata for string-based templates like .txt
     flat_metadata = {
@@ -111,7 +113,7 @@ def save_transcript(output_path, text, template, input_file=None, input_language
         json_data["Transcription Text"] = text
 
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(json_data, f, indent=2)
+            json.dump(json_data, f, ensure_ascii=False, indent=2)
 
     elif output_format == "csv":
        # Template headers like ['AudioFileName', 'AudioFileCreationDate', ...]
@@ -150,3 +152,10 @@ def save_transcript(output_path, text, template, input_file=None, input_language
     else:
         raise ValueError(f"Unsupported output format: {output_format}")
 
+
+def get_device_status():
+    """Returns a tuple (device_str, cuda_available_bool)."""
+    if torch.cuda.is_available():
+        device = torch.cuda.get_device_name(0)
+        return (device, True)
+    return ("CPU", False)

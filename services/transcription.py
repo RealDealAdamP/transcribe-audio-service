@@ -2,6 +2,7 @@
 
 import os
 import whisper
+from services.utils import get_device_status
 
 # Internal model cache
 _model_cache = {}
@@ -17,26 +18,29 @@ def get_model(model_name):
 def transcribe_file(file_path, model_name="medium", language="en", return_segments=False, translate_to_english=False):
     """
     Transcribes or translates a single audio file using the specified Whisper model and language.
-
-    Parameters:
-        file_path (str): Path to the audio file.
-        model_name (str): Whisper model name ("base", "small", "medium", "large").
-        language (str): Language code (e.g., "en", "es").
-        return_segments (bool): If True, include segment-level results (for diarization).
-        translate_to_english (bool): If True and language is not English, translates to English.
-
-    Returns:
-        dict: Contains at least 'text'. May include 'segments' if requested.
     """
+
     try:
+        # Step 1: Detect device
+        _, cuda_available = get_device_status()
+        device = "cuda" if cuda_available else "cpu"
+
+        # Step 2: Load and move model to device
         model = get_model(model_name)
+        model = model.to(device)
 
-        # Determine whether to translate or transcribe
+        # Step 3: Transcribe with optional fp16 if using GPU
+        transcribe_args = {
+            "language": language,
+            "fp16": (device == "cuda")
+        }
+
         if translate_to_english and language != "en":
-            result = model.transcribe(file_path, task="translate")
-        else:
-            result = model.transcribe(file_path, language=language)
+            transcribe_args["task"] = "translate"
 
+        result = model.transcribe(file_path, **transcribe_args)
+
+        # Step 4: Format response
         response = {
             "text": result["text"]
         }

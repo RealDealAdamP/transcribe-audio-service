@@ -11,6 +11,7 @@
 	"Output": {
 	  "Transcription Date": "2025-03-28 10:03:00",
     "Whisper Model": "tiny",
+    "Whisper Processing Device": "CPU",
 	  "Output Text Language": "English"
 	},
 	"Transcription Text": "Full transcription goes here..."

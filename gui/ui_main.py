@@ -17,7 +17,7 @@ from gui.service_controls import ServiceControlsFrame
 from gui.style_config import get_theme_style, get_bootstyles
 
 from services.transcription import transcribe_file, list_audio_files
-from services.utils import save_transcript, get_lang_name
+from services.utils import save_transcript, get_lang_name, get_device_status
 from services.version import __version__
 
 from services.template_manager import TemplateManager
@@ -307,6 +307,7 @@ class TranscribeApp:
             self.status_queue.delete(i)
             self.status_queue.insert(i, "Processing...")
             self.root.update_idletasks()
+            self.start_processing_animation(i)
 
             result = transcribe_file(
                 file_path,
@@ -326,16 +327,20 @@ class TranscribeApp:
                         input_language=get_lang_name(self.language),
                         output_language="English" if self.translate_to_english else get_lang_name(self.language),
                         model_used=self.model,
+                        processing_device="GPU" if self.gpu_available else "CPU",
                         output_format=self.output_extension
                     )
+                    self.stop_processing_animation()
                     self.status_queue.delete(i)
                     self.status_queue.insert(i, "Completed")
                     any_transcribed = True
                 except Exception as e:
+                    self.stop_processing_animation()
                     self.status_queue.delete(i)
                     self.status_queue.insert(i, "Error")
                     self.error_messages[filename] = f"Failed to save transcript: {str(e)}"
             else:
+                self.stop_processing_animation()
                 self.status_queue.delete(i)
                 self.status_queue.insert(i, "Error")
                 self.error_messages[filename] = result.get("error", "Unknown error")
@@ -445,6 +450,34 @@ class TranscribeApp:
             "The output format has been updated.\nThe queue has been refreshed."
             )
 
+
+    #File processing ... animation methods    
+    def start_processing_animation(self, row_index):
+        self.processing_animation_running = True
+        self.processing_row_index = row_index  # 👈 track which row we're animating
+        self.processing_dots = 0
+
+        def animate():
+            if not self.processing_animation_running:
+                return
+            if self.processing_row_index >= self.status_queue.size():
+                return  #  end early if out of range
+            dots = "." * (self.processing_dots % 4)
+            current_text = f"Processing{dots}"
+            try:
+                self.status_queue.delete(self.processing_row_index)
+                self.status_queue.insert(self.processing_row_index, current_text)
+            except Exception:
+                return  # Row may no longer exist (edge case)
+
+            self.processing_dots += 1
+            self.root.after(500, animate)
+
+        animate()
+
+    def stop_processing_animation(self):
+        self.processing_animation_running = False
+
     # ────────────────────────────────────────────────
     # UI Property Accessors
     # ────────────────────────────────────────────────
@@ -483,3 +516,17 @@ class TranscribeApp:
     @property
     def translate_to_english(self):
         return self.translate_var.get() 
+    
+    # ────────────────────────────────────────────────
+    # Device Property Accessors
+    # ────────────────────────────────────────────────
+
+    @property
+    def gpu_available(self):
+        _, available = get_device_status()
+        return available
+
+    @property
+    def device_name(self):
+        name, _ = get_device_status()
+        return name

@@ -10,6 +10,7 @@ Audio Bit Rate: {Audio Bit Rate}
 === Output Metadata ===
 Transcription Date: {Transcription Date}
 Whisper Model: {Whisper Model}
+Whisper Processing Device : {Whisper Processing Device}
 Output Text Language: {Output Text Language}
 
 === Transcription Text ===

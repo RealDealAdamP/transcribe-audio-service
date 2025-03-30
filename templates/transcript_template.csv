@@ -7,5 +7,6 @@
 "Audio Bit Rate",
 "Transcription Date",
 "Whisper Model",
+"Whisper Processing Device",
 "Output Text Language",
 "Transcription Text"
