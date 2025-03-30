@@ -14,22 +14,28 @@ def get_model(model_name):
         _model_cache[model_name] = whisper.load_model(model_name)
     return _model_cache[model_name]
 
-def transcribe_file(file_path, model_name="medium", language="en", return_segments=False):
+def transcribe_file(file_path, model_name="medium", language="en", return_segments=False, translate_to_english=False):
     """
-    Transcribes a single audio file using the specified Whisper model and language.
+    Transcribes or translates a single audio file using the specified Whisper model and language.
 
     Parameters:
         file_path (str): Path to the audio file.
         model_name (str): Whisper model name ("base", "small", "medium", "large").
         language (str): Language code (e.g., "en", "es").
         return_segments (bool): If True, include segment-level results (for diarization).
+        translate_to_english (bool): If True and language is not English, translates to English.
 
     Returns:
         dict: Contains at least 'text'. May include 'segments' if requested.
     """
     try:
         model = get_model(model_name)
-        result = model.transcribe(file_path, language=language)
+
+        # Determine whether to translate or transcribe
+        if translate_to_english and language != "en":
+            result = model.transcribe(file_path, task="translate")
+        else:
+            result = model.transcribe(file_path, language=language)
 
         response = {
             "text": result["text"]
@@ -42,6 +48,7 @@ def transcribe_file(file_path, model_name="medium", language="en", return_segmen
 
     except Exception as e:
         return {"error": str(e)}
+
 
 def list_audio_files(directory, extensions=(".mp3", ".m4a", ".wav")):
     """

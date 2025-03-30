@@ -1,27 +1,35 @@
-Transcribe Audio Service
+# **Transcribe Audio Service**
 
-Transcribe Audio Service is a lightweight, standalone transcription tool for Windows.  
-It batch-converts audio files (`.mp3`,`.m4a`, and `.wav`) into readable text using OpenAI’s Whisper model — no technical setup required.
+Transcribe Audio Service is a lightweight, standalone transcription tool for Windows.
+Batch-converts audio files (.mp3, .m4a, and .wav) into readable text using OpenAI’s Whisper model — no technical setup required.
+
+Users can choose between One Shot batch transcription or Continuous Directory Monitoring to automatically process new files at set intervals. Output formats include .txt, .csv, .json, and .xml, with optional translation to English for supported languages.
+
+Designed for enterprise and academic users interested in rapid capture of accurate and configurable audio transcription data.
 
 ---
 
 🚀 Features
 
-    🖥️ Easy-to-use desktop interface for transcribing audio files
+    🖥️ Simple, standalone desktop app — no technical setup required
 
-    🔄 Batch processing of .mp3, .m4a, and .wav files
+    🧠 Intelligent UI Design – users can effortlessly manage, deploy, and monitor their audio transcriptions through an intuitive user interface
 
-    🤖 Local transcription powered by OpenAI’s Whisper — no internet required
+    🤖 Powered by OpenAI’s Whisper — runs locally with high accuracy
 
-    📁 Choose from 4 output formats: .txt, .json, .csv, .xml
+    🎧 Supports .mp3, .m4a, and .wav audio formats
 
-    📝 Each transcript includes metadata like filename, creation date, and transcription time
+    🌐 Optional Translate → English feature for supported languages
 
-    🔊 Optional speaker recognition mode (for future enhancements)
+    🔄 One Shot batch transcription or Continuous Directory Monitoring at custom intervals
 
-    📂 Easily refresh and update the transcribe queue
+    🗂️ Export transcripts as .txt, .json, .csv, or .xml
 
-    🧾 Open transcript files directly by double-clicking completed items
+    🧾 Rich transcript metadata: filename, creation date, duration, audio language, output language, and more
+
+    📂 Click-to-open completed files directly from the transcription queue
+
+    🔊 Speaker recognition mode toggle (for future diarization support)
 
 ---
 
@@ -45,32 +53,38 @@ python main.py
 
 📁 Project Structure
 <pre>
+
 transcribe-audio-service/
 │
 ├── main.py                         # Launches the GUI application
 │
 ├── gui/                            # GUI components (modularized)
 │   ├── __init__.py
-│   ├── app.py                     # Entry point for launching TranscribeAudioService
-│   ├── layout.py                  # Main layout and logic controller
-│   ├── button_controls.py         # UI buttons: Transcribe, Stop, Status label
-│   ├── queue_display.py           # File queue, status indicators, and output box
-│   ├── settings_panel.py          # Radio buttons + checkboxes for settings
-│   └── style_config.py            # Centralized style definitions (ttkbootstrap)
+│   ├── app.py                      # Entry point for launching TranscribeAudioService
+│   ├── ui_main.py                  # Main layout and logic controller
+│   ├── service_controls.py         # Transcribe, Stop, and service status label
+│   ├── queue_display.py            # File queue, status indicators, and output box
+│   ├── settings_input.py           # Input settings frame (directory, language, monitoring)
+│   ├── settings_output.py          # Output settings frame (directory, format, translation)
+│   ├── settings_model.py           # Model settings frame (model selection + speaker toggle)
+│   └── style_config.py             # Centralized style definitions (ttkbootstrap)
 │
 ├── services/                       # Core services and business logic
 │   ├── __init__.py
-│   ├── dependency_check.py        # Optional: verifies installed dependencies
-│   ├── template_manager.py        # Loads and injects templates for output formats
-│   ├── transcription.py           # Whisper transcription logic
-│   ├── utils.py                   # Metadata extraction + output writing
-│   └── version.py                 # Application version constant
+│   ├── constants.py                # Centralized constants (e.g., language map)
+│   ├── dependency_check.py         # Optional: verifies installed dependencies
+│   ├── template_manager.py         # Loads and injects templates for output formats
+│   ├── transcription.py            # Whisper transcription logic
+│   ├── utils.py                    # Metadata extraction + output writing
+│   └── version.py                  # Application version constant
 │
 ├── templates/                      # Output templates for various formats
 │   ├── transcript_template.csv
 │   ├── transcript_template.json
 │   ├── transcript_template.txt
 │   └── transcript_template.xml
+
+
 
 .gitignore
 LICENSE

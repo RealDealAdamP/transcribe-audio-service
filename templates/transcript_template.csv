@@ -1,6 +1,8 @@
-"Audio File Name",""
-"Audio File Creation Date",""
-"Audio File Length",""
-"Audio File Item Type",""
-"Transcription Date",""
-"Transcription Text",""
+"Audio File Name",
+"Audio File Creation Date",
+"Audio File Length",
+"Audio File Item Type",
+"Audio Language",               
+"Transcription Date",
+"Output Text Language",         
+"Transcription Text"

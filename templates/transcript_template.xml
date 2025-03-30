@@ -1,8 +1,14 @@
 <Transcription>
-  <AudioFileName></AudioFileName>
-  <AudioFileCreationDate></AudioFileCreationDate>
-  <AudioFileLength></AudioFileLength>
-  <AudioFileItemType></AudioFileItemType>
-  <TranscriptionDate></TranscriptionDate>
+  <Input>
+    <AudioFileName></AudioFileName>
+    <AudioFileCreationDate></AudioFileCreationDate>
+    <AudioFileLength></AudioFileLength>
+    <AudioFileItemType></AudioFileItemType>
+    <AudioLanguage></AudioLanguage>
+  </Input>
+  <Output>
+    <TranscriptionDate></TranscriptionDate>
+    <OutputTextLanguage></OutputTextLanguage>
+  </Output>
   <TranscriptionText></TranscriptionText>
 </Transcription>

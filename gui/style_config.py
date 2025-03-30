@@ -7,14 +7,16 @@ def get_theme_style():
     """
     Creates and returns the ttkbootstrap style + shared font config.
     """
-    style = ttk.Style("darkly")  # You could later pass this dynamically
+    style = ttk.Style("cyborg")  # You could later pass this dynamically
     icon_font = tkfont.Font(size=14, weight="bold")
-    return style, icon_font
+    label_font = tkfont.Font(size=11, weight="bold")    # For section labels
+    return style, icon_font, label_font
 
 def get_bootstyles():
     """
-    Returns a dictionary mapping semantic UI elements to ttkbootstrap bootstyle tokens.
-    Designed to unify styling across all GUI modules.
+Returns a dictionary of ttkbootstrap bootstyle tokens grouped by UI frame.
+This centralized style map ensures consistent styling across all GUI modules 
+and simplifies maintenance and theming for the application.
     
 primary:The default color for most widgets
 secondary:Typically a gray color
@@ -27,28 +29,43 @@ dark:Typically a dark gray color
     
     """
     return {
-        # Section labels
-        "label_directory": "info",
-        "label_settings": "success",
-        "label_model": "info",
-        "label_lang": "info",
-        "label_output": "info",
-        "label_options": "info",
-        "label_queue": "info",
-        "label_status": "info",
-        "label_output_txt": "info",
-
-        # Buttons
-        "button_browse": "primary",
-        "button_refresh": "secondary",
-        "button_transcribe": "primary",
-        "button_stop": "danger",
-
-        # Radio buttons
-        "model_radio": "info",
-        "lang_radio": "info",
-        "output_radio": "info",
-
-        # Checkbutton or Switch
-        "speaker_toggle": "danger"
+        "input": {
+            "frame": "success",
+            "label_input_dir": "success",
+            "entry_input_dir": "secondary",
+            "button_browse": "success",
+            "label_lang": "success",
+            "dropdown_lang": "success",
+            "label_monitoring": "success",          
+            "checkbox_monitoring": "success-round-toggle",  
+            "label_interval": "success",            
+            "scale_interval": "success"              
+        },
+        "output": {
+            "frame": "info",
+            "label_output_dir": "info",
+            "entry_output_dir": "secondary",
+            "button_browse": "info",
+            "label_output_fmt": "info",
+            "dropdown_output_fmt": "info",
+            "check_translate": "info-round-toggle"  
+        },
+        "model": {
+            "frame": "warning",
+            "label_model": "warning",
+            "radio_model": "warning",
+            "checkbox_speaker": "warning-round-toggle"
+        },
+        "queue": {
+            "frame": "warning",  # Optional if you wrap QueueFrame in a LabelFrame someday
+            "label_queue": "warning",
+            "label_status": "warning",
+            "label_output_txt": "warning",
+            "button_refresh": "warning"
+        },
+        "controls": {
+            "button_transcribe": "success",
+            "button_stop": "danger",
+            "label_status": "info"
+        }
     }

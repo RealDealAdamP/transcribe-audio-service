@@ -3,58 +3,51 @@
 import os
 import tkinter as tk
 import ttkbootstrap as ttk
-from gui.style_config import get_bootstyles  # ✅ Centralized style tokens
 
-def create_queue_display(parent, on_select_file_callback, on_double_click_file_callback):
-    """
-    Creates the queue display section with:
-    - List of audio files
-    - Status indicators
-    - Transcription output box
+class QueueFrame(ttk.LabelFrame):
+    def __init__(self, parent, on_select_file_callback, on_double_click_file_callback, on_refresh_click=None, styles=None, **kwargs):
+        super().__init__(parent, text="", bootstyle=styles["queue"]["frame"], padding=10, **kwargs)
+        self.styles = styles
 
-    Args:
-        parent (tk.Widget): The parent container (usually root or a frame)
-        on_select_file_callback (function): Function to call when a file is selected
+        # ────────────────
+        # Top-Left Refresh Button (now in col 0)
+        if on_refresh_click:
+            ttk.Button(self, text="⟳",bootstyle=styles["queue"]["button_refresh"], width=3, command=on_refresh_click).grid(row=0, column=0, sticky="nw", padx=5, pady=5)
 
-    Returns:
-        Tuple: (frame, listbox_queue, status_queue, output_box)
-    """
-    styles = get_bootstyles()  # ✅ Load bootstyle tokens
-    frame = ttk.Frame(parent)
+        # ────────────────
+        # Labels (start from col 1)
+        ttk.Label(self, text="Transcribe Queue:", bootstyle=styles["queue"]["label_queue"]).grid(row=0, column=1, sticky="w")
+        ttk.Label(self, text="Status:", bootstyle=styles["queue"]["label_status"]).grid(row=0, column=2, sticky="w")
+        ttk.Label(self, text="Output Text:", bootstyle=styles["queue"]["label_output_txt"]).grid(row=0, column=4, sticky="w")
 
-    # Labels
-    ttk.Label(frame, text="Transcribe Queue:", bootstyle=styles["label_queue"]).grid(row=0, column=0, sticky="w")
-    ttk.Label(frame, text="Status:", bootstyle=styles["label_status"]).grid(row=0, column=1, sticky="w")
-    ttk.Label(frame, text="Output Text:", bootstyle=styles["label_output_txt"]).grid(row=0, column=3, sticky="w")
+        # ────────────────
+        # Listboxes
+        self.listbox_queue = tk.Listbox(self, width=40, height=10)
+        self.listbox_queue.grid(row=1, column=1, padx=5, pady=5)
+        self.listbox_queue.bind("<Double-1>", on_double_click_file_callback)
+        self.listbox_queue.bind("<<ListboxSelect>>", on_select_file_callback)
 
-    # Listboxes
-    listbox_queue = tk.Listbox(frame, width=40, height=10)
-    listbox_queue.grid(row=1, column=0, padx=5, pady=5)
-    listbox_queue.bind("<Double-1>", on_double_click_file_callback)
+        self.status_queue = tk.Listbox(self, width=15, height=10)
+        self.status_queue.grid(row=1, column=2, padx=5, pady=5)
 
-    status_queue = tk.Listbox(frame, width=15, height=10)
-    status_queue.grid(row=1, column=1, padx=5, pady=5)
+        # Shared scrollbar (col 3)
+        scrollbar = ttk.Scrollbar(self, orient="vertical")
+        scrollbar.config(command=lambda *args: (self.listbox_queue.yview(*args), self.status_queue.yview(*args)))
+        scrollbar.grid(row=1, column=3, sticky="ns")
 
-    # Shared scrollbar
-    scrollbar = ttk.Scrollbar(frame, orient="vertical")
-    scrollbar.config(command=lambda *args: (listbox_queue.yview(*args), status_queue.yview(*args)))
-    scrollbar.grid(row=1, column=2, sticky="ns")
+        self.listbox_queue.config(yscrollcommand=scrollbar.set)
+        self.status_queue.config(yscrollcommand=scrollbar.set)
 
-    listbox_queue.config(yscrollcommand=scrollbar.set)
-    status_queue.config(yscrollcommand=scrollbar.set)
+        # Output Box (col 4)
+        output_frame = ttk.Frame(self)
+        output_frame.grid(row=1, column=4, padx=5, pady=5, sticky="nsew")
 
-    # Output File Text Box
-    output_frame = ttk.Frame(frame)
-    output_frame.grid(row=1, column=3, padx=5, pady=5, sticky="nsew")
+        self.output_box = tk.Text(output_frame, wrap="word", width=60, height=10, state="disabled")
+        self.output_box.pack(side="left", fill="both", expand=True)
 
-    output_box = tk.Text(output_frame, wrap="word", width=60, height=10)
-    output_box.pack(side="left", fill="both", expand=True)
+        output_scroll = ttk.Scrollbar(output_frame, command=self.output_box.yview)
+        output_scroll.pack(side="right", fill="y")
+        self.output_box.config(yscrollcommand=output_scroll.set)
 
-    output_scroll = ttk.Scrollbar(output_frame, command=output_box.yview)
-    output_scroll.pack(side="right", fill="y")
-    output_box.config(yscrollcommand=output_scroll.set)
-
-    # Bind file selection to provided callback
-    listbox_queue.bind("<<ListboxSelect>>", on_select_file_callback)
-
-    return frame, listbox_queue, status_queue, output_box
+    def get_queue_widgets(self):
+        return self.listbox_queue, self.status_queue, self.output_box

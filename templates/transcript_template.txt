@@ -1,8 +1,13 @@
+=== Input Metadata ===
 Audio File Name: {Audio File Name}
 Audio File Creation Date: {Audio File Creation Date}
 Audio File Length: {Audio File Length}
 Audio File Item Type: {Audio File Item Type}
-Transcription Date: {Transcription Date}
+Audio Language: {Audio Language}
 
-Transcription Text:
+=== Output Metadata ===
+Transcription Date: {Transcription Date}
+Output Text Language: {Output Text Language}
+
+=== Transcription Text ===
 {Transcription Text}

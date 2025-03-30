@@ -1,9 +1,9 @@
 # File: transcribe_audio_service/gui/app.py
 
 import ttkbootstrap as ttk
-from gui.layout import TranscribeAudioService
+from gui.ui_main import TranscribeApp
 
 def launch_app():
     root = ttk.Window(themename="darkly")
-    app = TranscribeAudioService(root)
+    app = TranscribeApp(root)
     root.mainloop()
