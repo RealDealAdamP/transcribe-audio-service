@@ -2,12 +2,15 @@
   <Input>
     <AudioFileName></AudioFileName>
     <AudioFileCreationDate></AudioFileCreationDate>
-    <AudioFileLength></AudioFileLength>
-    <AudioFileItemType></AudioFileItemType>
     <AudioLanguage></AudioLanguage>
+    <AudioFileItemType></AudioFileItemType>
+    <AudioFileSize></AudioFileSize>
+    <AudioFileLength></AudioFileLength>
+    <AudioBitRate></AudioBitRate>
   </Input>
   <Output>
     <TranscriptionDate></TranscriptionDate>
+    <WhisperModel></WhisperModel>
     <OutputTextLanguage></OutputTextLanguage>
   </Output>
   <TranscriptionText></TranscriptionText>

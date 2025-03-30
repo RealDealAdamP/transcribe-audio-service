@@ -1,12 +1,15 @@
 === Input Metadata ===
 Audio File Name: {Audio File Name}
 Audio File Creation Date: {Audio File Creation Date}
-Audio File Length: {Audio File Length}
-Audio File Item Type: {Audio File Item Type}
 Audio Language: {Audio Language}
+Audio File Item Type: {Audio File Item Type}
+Audio File Size: {Audio File Size}
+Audio File Length: {Audio File Length}
+Audio Bit Rate: {Audio Bit Rate}
 
 === Output Metadata ===
 Transcription Date: {Transcription Date}
+Whisper Model: {Whisper Model}
 Output Text Language: {Output Text Language}
 
 === Transcription Text ===

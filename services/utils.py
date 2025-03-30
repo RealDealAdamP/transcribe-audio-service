@@ -2,6 +2,7 @@ import os
 import json
 import csv
 import datetime
+from mutagen import File as MutagenFile
 from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
 import re
@@ -20,23 +21,60 @@ def get_lang_name(code):
             return name
     return code  # fallback to code if no match found
 
-def get_transcription_metadata(file_path, input_language, output_language):
+def get_transcription_metadata(file_path, input_language, output_language, model_used):
     """Returns categorized metadata for the transcription process."""
+
+    # Get basic file properties
+    input_section = {
+        "Audio File Name": os.path.basename(file_path),
+        "Audio File Creation Date": datetime.datetime.fromtimestamp(os.path.getctime(file_path)).strftime("%Y-%m-%d %H:%M:%S"),
+        "Audio Language": input_language,
+        "Audio File Item Type": os.path.splitext(file_path)[1][1:]  # e.g., 'mp3', 'wav'
+        
+    }
+
+    # File size
+    try:
+        size_bytes = os.path.getsize(file_path)
+        input_section["Audio File Size"] = f"{round(size_bytes / (1024 * 1024), 2)} MB"
+    except Exception:
+        input_section["Audio File Size"] = "Unknown"
+
+    # Audio properties via mutagen
+    try:
+        audio = MutagenFile(file_path)
+        if audio is not None and hasattr(audio, "info"):
+            duration_sec = getattr(audio.info, "length", None)
+            bitrate = getattr(audio.info, "bitrate", None)
+
+            if duration_sec is not None:
+                minutes, seconds = divmod(int(duration_sec), 60)
+                input_section["Audio File Length"] = f"{minutes:02}:{seconds:02} ({round(duration_sec, 2)} sec)"
+            else:
+                input_section["Audio File Length"] = "Unknown"
+
+            if bitrate is not None:
+                input_section["Audio Bit Rate"] = f"{round(bitrate / 1000, 2)} kbps"
+            else:
+                input_section["Audio Bit Rate"] = "Unknown"
+        else:
+            input_section["Audio File Length"] = "Unknown"
+            input_section["Audio Bit Rate"] = "Unknown"
+
+    except Exception:
+        input_section["Audio File Length"] = "Error"
+        input_section["Audio Bit Rate"] = "Error"
+
     return {
-        "Input": {
-            "Audio File Name": os.path.basename(file_path),
-            "Audio File Creation Date": datetime.datetime.fromtimestamp(os.path.getctime(file_path)).strftime("%Y-%m-%d %H:%M:%S"),
-            "Audio File Length": "Unknown",  # Placeholder
-            "Audio File Item Type": os.path.splitext(file_path)[1][1:],  # 'mp3', 'wav'
-            "Audio Language": input_language
-        },
+        "Input": input_section,
         "Output": {
             "Transcription Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Whisper Model": model_used,
             "Output Text Language": output_language
         }
     }
 
-def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en", output_format="txt"):
+def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",model_used=None, output_format="txt"):
     """
     Save the transcription output to various formats using the provided template.
 
@@ -49,7 +87,7 @@ def save_transcript(output_path, text, template, input_file=None, input_language
         output_language (str): Language code of the output transcript.
         output_format (str): One of 'txt', 'json', 'csv', 'xml'.
     """
-    metadata = get_transcription_metadata(input_file, input_language, output_language) if input_file else {}
+    metadata = get_transcription_metadata(input_file, input_language, output_language, model_used) if input_file else {}
 
     # Flatten nested metadata for string-based templates like .txt
     flat_metadata = {

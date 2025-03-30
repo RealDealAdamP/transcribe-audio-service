@@ -1,5 +1,6 @@
 openai-whisper
 ttkbootstrap
+mutagen
 
 # System dependency:
 # Requires ffmpeg to be installed and added to PATH

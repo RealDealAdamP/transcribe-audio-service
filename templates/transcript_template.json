@@ -1,13 +1,16 @@
 {
 	"Input": {
-	  "Audio File Name": "example.wav",
-	  "Audio File Creation Date": "2025-03-28 10:01:00",
-	  "Audio File Length": "Unknown",
-	  "Audio File Item Type": "wav",
-	  "Audio Language": "Spanish"
-	},
+    "Audio File Name": "example.wav",
+    "Audio File Creation Date": "2025-03-28 10:01:00",
+    "Audio Language": "Spanish",
+    "Audio File Item Type": "wav",
+    "Audio File Size": "3.41 MB",
+    "Audio File Length": "02:18 (138.6 sec)",
+    "Audio Bit Rate": "192.0 kbps"
+  },
 	"Output": {
 	  "Transcription Date": "2025-03-28 10:03:00",
+    "Whisper Model": "tiny",
 	  "Output Text Language": "English"
 	},
 	"Transcription Text": "Full transcription goes here..."

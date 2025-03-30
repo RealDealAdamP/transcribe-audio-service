@@ -53,7 +53,7 @@ dark:Typically a dark gray color
         "model": {
             "frame": "warning",
             "label_model": "warning",
-            "radio_model": "warning",
+            "dropdown_model": "warning",             # renamed from combobox_model
             "checkbox_speaker": "warning-round-toggle"
         },
         "queue": {

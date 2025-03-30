@@ -3,6 +3,7 @@
 import os
 import threading
 import tkinter as tk
+import time
 from tkinter import filedialog, messagebox
 import tkinter.font as tkfont
 import ttkbootstrap as ttk
@@ -106,17 +107,16 @@ class TranscribeApp:
         self.input_settings.set_output_frame(self.output_settings)
 
         
-        # Row 1 — Model Settings (centered by columnspan)
+        #Model Settings (centered by columnspan)
         self.model_settings = SettingsModelFrame(
             self.root,
-            model_var=self.model_var,
             speaker_recognition_var=self.speaker_recognition_var,
             styles=self.styles,
             label_font=self.label_font
         )
         self.model_settings.grid(row=1, column=0, columnspan=2, padx=5, pady=(5, 10), sticky="n")
 
-        # Row 2 — Queue and Output Display
+        #Queue and Output Display
         self.queue_frame = QueueFrame(
             self.root,
             self.on_select_file,
@@ -284,6 +284,10 @@ class TranscribeApp:
     def transcribe_files(self):
         any_transcribed = False
 
+        #Start Service Timer
+        self.service_controls.start_time = time.time()
+        self.service_controls.update_service_timer()
+
         for i in range(self.listbox_queue.size()):
             if self.stop_requested:
                 self.status_animation_running = False
@@ -321,6 +325,7 @@ class TranscribeApp:
                         input_file=file_path,
                         input_language=get_lang_name(self.language),
                         output_language="English" if self.translate_to_english else get_lang_name(self.language),
+                        model_used=self.model,
                         output_format=self.output_extension
                     )
                     self.status_queue.delete(i)
@@ -334,6 +339,9 @@ class TranscribeApp:
                 self.status_queue.delete(i)
                 self.status_queue.insert(i, "Error")
                 self.error_messages[filename] = result.get("error", "Unknown error")
+            
+        #End Service Timer
+        self.service_controls.stop_service_timer()
 
         # All transcription is now done — finalize state
         self.status_animation_running = False
@@ -451,7 +459,7 @@ class TranscribeApp:
 
     @property
     def model(self):
-        return self.model_var.get()
+        return self.model_settings.get_selected_model(lang_code=self.language)
 
     @property
     def language(self):
