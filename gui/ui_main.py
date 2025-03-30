@@ -304,7 +304,13 @@ class TranscribeApp:
             self.status_queue.insert(i, "Processing...")
             self.root.update_idletasks()
 
-            result = transcribe_file(file_path, self.model, self.language, return_segments=self.use_diarization,translate_to_english=self.translate_to_english)
+            result = transcribe_file(
+                file_path,
+                self.model,
+                self.language,
+                return_segments=self.use_diarization,
+                translate_to_english=self.translate_to_english
+)
 
             if "text" in result:
                 try:
@@ -329,16 +335,18 @@ class TranscribeApp:
                 self.status_queue.insert(i, "Error")
                 self.error_messages[filename] = result.get("error", "Unknown error")
 
+        # All transcription is now done — finalize state
         self.status_animation_running = False
         self.set_ui_inputs_state(True)
 
+        #Stop condition takes precedence
         if self.stop_requested:
             self.service_status.config(text="Service is currently Stopped")
+            self.stop_requested = False  # Optional: reset flag
         elif self.monitoring_enabled:
             self.continuous_monitoring()
         elif any_transcribed:
             messagebox.showinfo("Success", "All audio files have been transcribed.")
-            self.status_animation_running = False
             self.service_status.config(text="Service is currently Stopped")
         else:
             self.service_status.config(text="Service is currently Stopped")
@@ -348,14 +356,15 @@ class TranscribeApp:
         if (self.transcribe_thread and self.transcribe_thread.is_alive()) or getattr(self, "idle_mode", False):
             self.stop_requested = True
 
-            # Cancel any scheduled monitoring callbacks
             if hasattr(self, "monitor_after_id"):
                 self.root.after_cancel(self.monitor_after_id)
 
-            # Stop animation and update status
-            self.status_animation_running = False
+            # 🟢 Don't stop animation — let it run during the final transcription
             self.idle_mode = False
-            self.service_status.config(text="Service is currently Stopped")
+            self.status_animation_running = True
+            self.status_animation_index = 0
+            self.animate_service_status()
+
             self.set_ui_inputs_state(True)
         else:
             messagebox.showinfo("Info", "Transcription service is not running.")
@@ -411,7 +420,7 @@ class TranscribeApp:
 
         if self.stop_requested:
             self.service_status.config(text=f"Processing Stop Request{dots}")
-        elif getattr(self, "idle_mode", False):  # ✅ Idle monitoring mode
+        elif getattr(self, "idle_mode", False):
             self.service_status.config(text=f"Service is currently idle{dots}")
         else:
             self.service_status.config(text=f"Service is currently running{dots}")
