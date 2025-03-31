@@ -18,6 +18,22 @@ MODEL_VRAM_REQUIREMENTS = {
     "turbo": 6
 }
 
+# Recommended batch size thresholds based on available VRAM (in GB)
+BATCH_SIZE_THRESHOLDS = {
+    "high": {
+        "vram": 10,        # GPUs with ≥10GB VRAM
+        "batch_size": 32
+    },
+    "medium": {
+        "vram": 8,         # GPUs with ≥8GB VRAM
+        "batch_size": 16
+    },
+    "low": {
+        "vram": 0,         # CPU or low-VRAM GPUs
+        "batch_size": 8
+    }
+}
+
 
 LANGUAGE_MAP = {
     "English": "en",

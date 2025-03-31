@@ -12,6 +12,7 @@
     <TranscriptionDate></TranscriptionDate>
     <WhisperModel></WhisperModel>
     <WhisperProcessingDevice></WhisperProcessingDevice>
+    <WhisperBatchSize></WhisperBatchSize>
     <OutputTextLanguage></OutputTextLanguage>
   </Output>
   <TranscriptionText></TranscriptionText>

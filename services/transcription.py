@@ -33,6 +33,7 @@ def transcribe_file(file_path, model_name="medium", language="en", return_segmen
         transcribe_args = {
             "language": language,
             "fp16": (device == "cuda")
+            
         }
 
         if translate_to_english and language != "en":

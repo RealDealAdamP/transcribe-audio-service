@@ -6,7 +6,7 @@ from mutagen import File as MutagenFile
 from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
 import re
-from services.constants import LANGUAGE_MAP
+from services.constants import LANGUAGE_MAP, BATCH_SIZE_THRESHOLDS
 import torch
 
 def _expand_key(compact_key):
@@ -22,7 +22,7 @@ def get_lang_name(code):
             return name
     return code  # fallback to code if no match found
 
-def get_transcription_metadata(file_path, input_language, output_language, model_used, processing_device=None):
+def get_transcription_metadata(file_path, input_language, output_language, model_used, processing_device=None,batch_size=8):
     """Returns categorized metadata for the transcription process."""
 
     # Get basic file properties
@@ -72,11 +72,12 @@ def get_transcription_metadata(file_path, input_language, output_language, model
             "Transcription Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Whisper Model": model_used,
             "Whisper Processing Device": processing_device or "Unknown",
+            "Whisper Batch Size": batch_size,
             "Output Text Language": output_language
         }
     }
 
-def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",model_used=None,processing_device=None, output_format="txt"):
+def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",model_used=None,processing_device=None,batch_size=8, output_format="txt"):
     """
     Save the transcription output to various formats using the provided template.
 
@@ -89,7 +90,7 @@ def save_transcript(output_path, text, template, input_file=None, input_language
         output_language (str): Language code of the output transcript.
         output_format (str): One of 'txt', 'json', 'csv', 'xml'.
     """
-    metadata = get_transcription_metadata(input_file, input_language, output_language, model_used, processing_device) if input_file else {}
+    metadata = get_transcription_metadata(input_file, input_language, output_language, model_used, processing_device, batch_size) if input_file else {}
 
     # Flatten nested metadata for string-based templates like .txt
     flat_metadata = {
@@ -134,14 +135,14 @@ def save_transcript(output_path, text, template, input_file=None, input_language
             if tag == "Input":
                 for sub in child:
                     value = metadata.get("Input", {}).get(_expand_key(sub.tag))
-                    if value:
-                        sub.text = value
+                    if value is not None:
+                        sub.text = str(value) 
 
             elif tag == "Output":
                 for sub in child:
                     value = metadata.get("Output", {}).get(_expand_key(sub.tag))
-                    if value:
-                        sub.text = value
+                    if value is not None:
+                        sub.text = str(value) 
 
             elif tag == "TranscriptionText":
                 child.text = text
@@ -159,3 +160,21 @@ def get_device_status():
         device = torch.cuda.get_device_name(0)
         return (device, True)
     return ("CPU", False)
+
+def get_optimal_batch_size(vram_gb, using_gpu):
+    if not using_gpu:
+        return BATCH_SIZE_THRESHOLDS["low"]["batch_size"]
+
+    if vram_gb >= BATCH_SIZE_THRESHOLDS["high"]["vram"]:
+        return BATCH_SIZE_THRESHOLDS["high"]["batch_size"]
+    elif vram_gb >= BATCH_SIZE_THRESHOLDS["medium"]["vram"]:
+        return BATCH_SIZE_THRESHOLDS["medium"]["batch_size"]
+    else:
+        return BATCH_SIZE_THRESHOLDS["low"]["batch_size"]
+    
+def qualifies_for_batch_processing(file_path, use_diarization):
+    try:
+        size_mb = os.path.getsize(file_path) / (1024 * 1024)
+        return use_diarization or size_mb > 25
+    except Exception:
+        return False  # Fail safe: assume no

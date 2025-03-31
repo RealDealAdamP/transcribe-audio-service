@@ -17,7 +17,7 @@ from gui.service_controls import ServiceControlsFrame
 from gui.style_config import get_theme_style, get_bootstyles
 
 from services.transcription import transcribe_file, list_audio_files
-from services.utils import save_transcript, get_lang_name, get_device_status
+from services.utils import save_transcript, get_lang_name, get_device_status, qualifies_for_batch_processing, get_optimal_batch_size
 from services.version import __version__
 
 from services.template_manager import TemplateManager
@@ -304,6 +304,15 @@ class TranscribeApp:
             file_path = os.path.join(self.input_dir, filename)
             output_path = os.path.join(self.output_dir, f"{os.path.splitext(filename)[0]}.{self.output_extension}")
 
+            # Batch size qualifier start
+            qualifies_for_batch = qualifies_for_batch_processing(file_path, self.use_diarization)
+            if qualifies_for_batch:
+                vram_gb = self.model_settings._get_available_vram()
+                batch_size = get_optimal_batch_size(vram_gb, self.gpu_available)
+            else:
+                batch_size = 1
+            # Batch size qualifier end
+
             self.status_queue.delete(i)
             self.status_queue.insert(i, "Processing...")
             self.root.update_idletasks()
@@ -314,7 +323,7 @@ class TranscribeApp:
                 self.model,
                 self.language,
                 return_segments=self.use_diarization,
-                translate_to_english=self.translate_to_english
+                translate_to_english=self.translate_to_english              
 )
 
             if "text" in result:
@@ -328,6 +337,7 @@ class TranscribeApp:
                         output_language="English" if self.translate_to_english else get_lang_name(self.language),
                         model_used=self.model,
                         processing_device="GPU" if self.gpu_available else "CPU",
+                        batch_size=batch_size,
                         output_format=self.output_extension
                     )
                     self.stop_processing_animation()
@@ -372,13 +382,16 @@ class TranscribeApp:
             if hasattr(self, "monitor_after_id"):
                 self.root.after_cancel(self.monitor_after_id)
 
+            #End Service Timer
+            self.service_controls.stop_service_timer()
+
             # 🟢 Don't stop animation — let it run during the final transcription
             self.idle_mode = False
             self.status_animation_running = True
             self.status_animation_index = 0
             self.animate_service_status()
 
-            self.set_ui_inputs_state(True)
+            
         else:
             messagebox.showinfo("Info", "Transcription service is not running.")
 

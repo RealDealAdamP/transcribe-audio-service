@@ -8,5 +8,6 @@
 "Transcription Date",
 "Whisper Model",
 "Whisper Processing Device",
+"Whisper Batch Size",
 "Output Text Language",
 "Transcription Text"
