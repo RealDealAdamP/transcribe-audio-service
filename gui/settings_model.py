@@ -1,7 +1,6 @@
 # File: gui/settings_model.py
 
 import ttkbootstrap as ttk
-import tkinter as tk
 import torch
 from services.constants import WHISPER_MODELS, MODEL_VRAM_REQUIREMENTS
 

@@ -2,7 +2,6 @@
 
 import tkinter as tk
 import ttkbootstrap as ttk
-from tkinter import filedialog
 
 class SettingsOutputFrame(ttk.LabelFrame):
     def __init__(

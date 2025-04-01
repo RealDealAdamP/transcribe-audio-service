@@ -1,4 +1,4 @@
-# File: gui/layout.py
+# File: gui/ui_main.py
 
 import os
 import threading
@@ -7,7 +7,7 @@ import time
 from tkinter import filedialog, messagebox
 import tkinter.font as tkfont
 import ttkbootstrap as ttk
-
+import shutil
 from gui.settings_input import SettingsInputFrame
 from gui.settings_output import SettingsOutputFrame
 from gui.settings_model import SettingsModelFrame
@@ -16,8 +16,10 @@ from gui.service_controls import ServiceControlsFrame
 
 from gui.style_config import get_theme_style, get_bootstyles
 
-from services.transcription import transcribe_file, list_audio_files
-from services.utils import save_transcript, get_lang_name, get_device_status, qualifies_for_batch_processing, get_optimal_batch_size
+import tempfile
+
+from services.transcription import transcribe_file,transcribe_file_with_diarization, list_audio_files
+from services.utils_transcribe import save_transcript, get_lang_name, get_device_status, qualifies_for_batch_processing, get_optimal_batch_size
 from services.version import __version__
 
 from services.template_manager import TemplateManager
@@ -317,14 +319,33 @@ class TranscribeApp:
             self.status_queue.insert(i, "Processing...")
             self.root.update_idletasks()
             self.start_processing_animation(i)
+            
+            # Inside your transcription trigger logic in ui_main.py
+            temp_dir = tempfile.mkdtemp(prefix="transcribe_job_")
 
-            result = transcribe_file(
-                file_path,
-                self.model,
-                self.language,
-                return_segments=self.use_diarization,
-                translate_to_english=self.translate_to_english              
-)
+            try:
+                if self.use_diarization:
+                    result = transcribe_file_with_diarization(
+                        file_path,
+                        temp_dir=temp_dir, 
+                        model_name=self.model,
+                        language=self.language,
+                        translate_to_english=self.translate_to_english,
+                        
+                    )
+                else:
+                    result = transcribe_file(
+                        file_path,
+                        temp_dir, 
+                        self.model,
+                        self.language,
+                        return_segments=False,
+                        translate_to_english=self.translate_to_english,
+                    )
+            finally:
+                # 🧼 Cleanup temp directory and all files inside it
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
 
             if "text" in result:
                 try:
@@ -338,6 +359,7 @@ class TranscribeApp:
                         model_used=self.model,
                         processing_device="GPU" if self.gpu_available else "CPU",
                         batch_size=batch_size,
+                        use_diarization=self.use_diarization,
                         output_format=self.output_extension
                     )
                     self.stop_processing_animation()

@@ -1,3 +1,4 @@
+# File: transcribe_audio_service/services/utils_transcribe.py
 import os
 import json
 import csv
@@ -6,7 +7,7 @@ from mutagen import File as MutagenFile
 from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
 import re
-from services.constants import LANGUAGE_MAP, BATCH_SIZE_THRESHOLDS
+from services.constants import LANGUAGE_MAP, BATCH_SIZE_THRESHOLDS, SPEAKER_LABEL_MAP
 import torch
 
 def _expand_key(compact_key):
@@ -77,7 +78,8 @@ def get_transcription_metadata(file_path, input_language, output_language, model
         }
     }
 
-def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",model_used=None,processing_device=None,batch_size=8, output_format="txt"):
+def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",
+                    model_used=None,processing_device=None,batch_size=8, use_diarization=False, output_format="txt"):
     """
     Save the transcription output to various formats using the provided template.
 
@@ -97,6 +99,14 @@ def save_transcript(output_path, text, template, input_file=None, input_language
         **metadata.get("Input", {}),
         **metadata.get("Output", {})
     }
+    
+    #transcribe_file_with_diarization() txt output post processing
+    if use_diarization:
+        try:
+            text = group_transcript_blocks(text)
+            text = localize_speaker_labels(text, output_language)
+        except Exception as e:
+            print("⚠️ Diarization post-processing failed:", str(e))
 
     # Merge flat metadata with transcription text
     merged_data = {**flat_metadata, "Transcription Text": text}
@@ -178,3 +188,78 @@ def qualifies_for_batch_processing(file_path, use_diarization):
         return use_diarization or size_mb > 25
     except Exception:
         return False  # Fail safe: assume no
+    
+def parse_diarized_line(line):
+    """
+    Extract timestamp, speaker label, and text from one diarized line.
+    Format expected: [00:00:00.008 - 00:00:02.504] SPEAKER_00: some text
+    """
+    match = re.match(r"\[(.*?) - (.*?)\] (SPEAKER_\d+): (.*)", line)
+    if match:
+        return {
+            "start": match.group(1).strip(),
+            "end": match.group(2).strip(),
+            "speaker": match.group(3).strip(),
+            "text": match.group(4).strip()
+        }
+    return None
+
+def group_transcript_blocks(text, lang_code="en"):
+    lines = [parse_diarized_line(line) for line in text.strip().splitlines()]
+    lines = [line for line in lines if line is not None]
+
+    if not lines:
+        return text
+
+    # Map speaker labels to consistent indexes
+    speaker_map = {}
+    speaker_counter = 0
+
+    def get_mapped_speaker(speaker_raw):
+        nonlocal speaker_counter
+        if speaker_raw not in speaker_map:
+            speaker_map[speaker_raw] = speaker_counter
+            speaker_counter += 1
+        return get_speaker_label(lang_code, speaker_map[speaker_raw])
+
+    grouped = []
+    current = lines[0].copy()
+    current["speaker"] = get_mapped_speaker(current["speaker"])
+
+    for line in lines[1:]:
+        mapped_speaker = get_mapped_speaker(line["speaker"])
+        if mapped_speaker == current["speaker"]:
+            current["end"] = line["end"]
+            current["text"] += " " + line["text"]
+        else:
+            grouped.append(current)
+            current = line.copy()
+            current["speaker"] = mapped_speaker
+    grouped.append(current)
+
+    final_text = "\n".join(
+        f"[{block['start']} - {block['end']}] {block['speaker']}: {block['text']}"
+        for block in grouped
+    )
+    return final_text
+
+def get_speaker_label(lang_code, speaker_index):
+    label_prefix = SPEAKER_LABEL_MAP.get(lang_code, "SPEAKER")
+    if lang_code == "ja":
+        return f"{label_prefix} {speaker_index + 1}"
+    else:
+        return f"{label_prefix}_{speaker_index:02d}"
+    
+def localize_speaker_labels(text: str, language: str) -> str:
+    """
+    Replaces 'SPEAKER_00', 'SPEAKER_01', etc. with localized speaker labels
+    based on language-specific mapping.
+    """
+    base_label = SPEAKER_LABEL_MAP.get(language, "SPEAKER")
+
+    def replace_label(match):
+        number = int(match.group(1))
+        return f"{base_label} {number + 1}"
+
+    # Match 'SPEAKER_00', 'SPEAKER_01', etc.
+    return re.sub(r"SPEAKER_(\d{2})", replace_label, text)

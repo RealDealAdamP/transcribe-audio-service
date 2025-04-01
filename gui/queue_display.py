@@ -1,6 +1,5 @@
 # File: gui/queue_display.py
 
-import os
 import tkinter as tk
 import ttkbootstrap as ttk
 

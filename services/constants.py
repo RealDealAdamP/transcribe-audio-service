@@ -44,3 +44,18 @@ LANGUAGE_MAP = {
     "Portuguese": "pt",
     "Italian": "it"
 }
+
+SPEAKER_LABEL_MAP = {
+    "English": "SPEAKER",         # Common transcription convention
+    "Spanish": "Interlocutor",    # Better suited than "Hablante" in conversations
+    "French": "Intervenant",     # Standard in interviews, dialogues
+    "German": "Sprecher",        # Used in captions/subtitles
+    "Japanese": "話し手",           # (Hanashite) – the person who speaks
+    "Portuguese": "Locutor",         # Used in broadcasting, subtitling
+    "Italian": "Parlante",        # Common in linguistic/transcription contexts
+}
+
+SUPPORTED_AUDIO_EXTENSIONS = (
+    ".mp3", ".m4a", ".wav", ".wma", ".flac", ".ogg",
+    ".aac"
+)

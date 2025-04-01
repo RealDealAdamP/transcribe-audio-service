@@ -201,3 +201,6 @@ cython_debug/
 __pycache__/
 transcribe_audio_service/**/__pycache__/
 
+# Exclude model caches and local weights
+.models/
+cache_models/
