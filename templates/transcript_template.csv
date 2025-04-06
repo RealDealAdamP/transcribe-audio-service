@@ -1,13 +1,1 @@
-"Audio File Name",
-"Audio File Creation Date",
-"Audio Language",
-"Audio File Item Type",
-"Audio File Size",
-"Audio File Length",
-"Audio Bit Rate",
-"Transcription Date",
-"Whisper Model",
-"Whisper Processing Device",
-"Whisper Batch Size",
-"Output Text Language",
-"Transcription Text"
+"Audio File Name","Audio File Creation Date","Audio Language","Audio File Item Type","Audio File Size","Audio File Length","Audio Bit Rate","Transcription Date","Whisper Model","Whisper Processing Device","Whisper Batch Size","Output Text Language","Transcription Text"

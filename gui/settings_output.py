@@ -2,6 +2,7 @@
 
 import tkinter as tk
 import ttkbootstrap as ttk
+from services.constants import SUPPORTED_OUTPUT_EXTENSIONS
 
 class SettingsOutputFrame(ttk.LabelFrame):
     def __init__(
@@ -15,6 +16,7 @@ class SettingsOutputFrame(ttk.LabelFrame):
         label_font=None,
         on_format_change=None,
         browse_callback=None,
+        view_callback=None,
         **kwargs
     ):
         super().__init__(parent, text="Output Settings", bootstyle=styles["output"]["frame"], **kwargs)
@@ -26,6 +28,7 @@ class SettingsOutputFrame(ttk.LabelFrame):
         self.on_format_change = on_format_change
         self.styles = styles
         self.browse_callback = browse_callback 
+        self.view_callback = view_callback 
         
         # Output Directory Label
         ttk.Label(
@@ -43,13 +46,26 @@ class SettingsOutputFrame(ttk.LabelFrame):
         
         entry_output.grid(row=1, column=0, padx=(5, 2), pady=5, sticky="ew")
 
+        # 🧱 Sub-frame for Browse + View buttons
+        button_group = ttk.Frame(self)
+        button_group.grid(row=1, column=1, padx=(2, 5), pady=5, sticky="w")
+
         # Browse Button
         ttk.Button(
-            self,
+            button_group,
             text="Browse",
             command=browse_callback,
             bootstyle=styles["output"]["button_browse"]
-        ).grid(row=1, column=1, padx=(2, 5), pady=5)
+        ).grid(row=0, column=0, padx=(0, 4))
+
+        # View Button (icon only)
+        ttk.Button(
+            button_group,
+            text="📂",
+            width=3,
+            command=view_callback,
+            bootstyle=styles["output"]["button_view"]
+        ).grid(row=0, column=1)
 
         # Output Format Label
         ttk.Label(
@@ -60,15 +76,15 @@ class SettingsOutputFrame(ttk.LabelFrame):
         ).grid(row=2, column=0, sticky="w", padx=5, pady=(10, 2))
 
         # Output Format Dropdown
-        format_dropdown = ttk.Combobox(
+        self.format_dropdown = ttk.Combobox(
             self,
             textvariable=self.output_format_var,
-            values=["txt", "json", "csv", "xml"],
+            values=list(SUPPORTED_OUTPUT_EXTENSIONS),
             state="readonly",
             bootstyle=styles["output"]["dropdown_output_fmt"]
         )
-        format_dropdown.grid(row=3, column=0, padx=5, pady=5, sticky="w")
-        format_dropdown.bind("<<ComboboxSelected>>", self.handle_format_change)
+        self.format_dropdown.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        self.format_dropdown.bind("<<ComboboxSelected>>", self.handle_format_change)
         
 
         # Row 3 – Spacer
@@ -112,3 +128,11 @@ class SettingsOutputFrame(ttk.LabelFrame):
                 self.translate_var.set(False)
             else:
                 self.translate_checkbox.state(["!disabled"])
+
+    def set_format_options(self, format_list):
+        self.format_dropdown.config(values=format_list)
+
+        # Optional: reset selected value if it's now invalid
+        current_value = self.output_format_var.get()
+        if current_value not in format_list:
+            self.output_format_var.set(format_list[0])

@@ -1,15 +1,12 @@
 # File: transcribe_audio_service/services/utils_audio.py
 
-
-
-import torchaudio
 import subprocess
 import tempfile
 import os
+from services.constants import SUPPORTED_AUDIO_EXTENSIONS
 
-WHISPER_SAMPLE_RATE = 16000
 
-def prep_whisper_audio(path, temp_dir, target_sr=12000, bitrate="16k"):
+def prep_whisper_audio(path, temp_dir, target_sr=16000, bitrate="32k"):
     """
     Convert audio to optimized MP3 format for Whisper using FFmpeg.
 
@@ -32,33 +29,17 @@ def prep_whisper_audio(path, temp_dir, target_sr=12000, bitrate="16k"):
     subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return compressed_mp3_path
 
-def prep_pyannote_audio(path, temp_dir, target_sr=16000):
+
+
+def list_audio_files(directory, extensions=SUPPORTED_AUDIO_EXTENSIONS):
     """
-    Converts an input audio file to a 16kHz mono WAV format suitable for PyAnnote.
-
-    Returns:
-        Tuple[Tensor, int]: waveform [1, N], sample_rate
+    Returns a list of audio filenames in the directory matching supported extensions.
     """
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, dir=temp_dir) as tmp:
-        temp_wav_path = tmp.name
+    return [f for f in os.listdir(directory) if f.lower().endswith(extensions)]
 
-    # Use ffmpeg to convert to a PyAnnote-compatible .wav
-    command = [
-        "ffmpeg", "-i", path,
-        "-ac", "1",                  # mono
-        "-ar", str(target_sr),      # 16kHz
-        "-acodec", "pcm_s16le",     # raw PCM
-        temp_wav_path,
-        "-y"
-    ]
-    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    # Load the result into memory
-    waveform, sample_rate = torchaudio.load(temp_wav_path)
-
-    # Clean up the temp file now that we're done
-    os.remove(temp_wav_path)
-
-    return waveform, sample_rate
-
-
+def tmp_audio_cleanup(file_path):
+    try:
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Warning: Failed to delete temp file {file_path}: {e}")

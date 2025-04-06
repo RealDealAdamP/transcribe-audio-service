@@ -34,6 +34,7 @@ dark:Typically a dark gray color
             "label_input_dir": "success",
             "entry_input_dir": "secondary",
             "button_browse": "success",
+            "button_view" : 'success',
             "label_lang": "success",
             "dropdown_lang": "success",
             "label_monitoring": "success",          
@@ -46,6 +47,7 @@ dark:Typically a dark gray color
             "label_output_dir": "info",
             "entry_output_dir": "secondary",
             "button_browse": "info",
+            "button_view": "info",
             "label_output_fmt": "info",
             "dropdown_output_fmt": "info",
             "check_translate": "info-round-toggle"  
@@ -56,11 +58,19 @@ dark:Typically a dark gray color
             "dropdown_model": "warning",             # renamed from combobox_model
             "checkbox_speaker": "warning-round-toggle"
         },
+        
+        "monitor": {
+            "frame": "warning",
+            "low": "warning",
+            "high": "danger",
+            "inactive":"secondary"
+        },
         "queue": {
             "frame": "warning",  # Optional if you wrap QueueFrame in a LabelFrame someday
             "label_queue": "warning",
             "label_status": "warning",
             "label_output_txt": "warning",
+            "entry_search":"warning",
             "button_refresh": "warning"
         },
         "controls": {
@@ -68,4 +78,5 @@ dark:Typically a dark gray color
             "button_stop": "danger",
             "label_status": "info"
         }
+        
     }

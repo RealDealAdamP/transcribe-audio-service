@@ -1,10 +1,21 @@
 # Whisper-based transcription dependencies
-openai-whisper
-pyannote-audio==3.1.1
-mutagen==1.46.0
+git+https://github.com/openai/whisper.git
+tinytag>=1.8.0  # lightweight audio metadata reader
 ttkbootstrap
 
 # PyTorch with CUDA 11.8 support
 torch==2.1.0+cu118
 torchvision==0.16.0+cu118
 torchaudio==2.1.0+cu118
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+# Device performance monitoring 
+psutil>=5.9.0
+pynvml==11.4.1  # Known stable version
+
+
+# Parquet output support
+pyarrow
+#Acoustic Fingerprinting 
+librosa
+silero-vad

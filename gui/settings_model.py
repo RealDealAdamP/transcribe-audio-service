@@ -6,11 +6,12 @@ from services.constants import WHISPER_MODELS, MODEL_VRAM_REQUIREMENTS
 
 
 class SettingsModelFrame(ttk.LabelFrame):
-    def __init__(self, parent, speaker_recognition_var, styles, label_font=None, **kwargs):
+    def __init__(self, parent, speaker_identification_var, styles, label_font=None, **kwargs):
         super().__init__(parent, text="Model Settings", bootstyle=styles["model"]["frame"], **kwargs)
 
-        self.speaker_recognition_var = speaker_recognition_var
+        self.speaker_identification_var = speaker_identification_var
         self.styles = styles
+        
 
         # Label for Whisper Model
         ttk.Label(
@@ -74,13 +75,12 @@ class SettingsModelFrame(ttk.LabelFrame):
         self.model_combobox.bind("<<ComboboxSelected>>", self._on_model_selected)
         self._on_model_selected()  # Trigger once on startup
 
-       
 
-        # Speaker recognition checkbox
+        # Speaker identification checkbox
         self.checkbox = ttk.Checkbutton(
             self,
-            text="Enable Speaker Recognition",
-            variable=self.speaker_recognition_var,
+            text="Enable Speaker Identification",
+            variable=self.speaker_identification_var,
             bootstyle=styles["model"]["checkbox_speaker"]
         )
         self.checkbox.grid(row=2, column=0, columnspan=5, sticky="w", padx=5, pady=(10, 5))
@@ -127,3 +127,5 @@ class SettingsModelFrame(ttk.LabelFrame):
     def validate(self):
         # Placeholder for future validation logic (e.g., restrict large models without GPU)
         return True
+    
+    

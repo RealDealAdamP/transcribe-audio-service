@@ -1,8 +1,12 @@
+# File: transcribe_audio_service/services/template_manager.py
+
 import os
 import json
 import csv
 from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
+from services.constants import FORMATS_REQUIRING_TEMPLATES, SUPPORTED_OUTPUT_EXTENSIONS
+
 
 class TemplateManager:
     def __init__(self, template_dir="templates"):
@@ -15,16 +19,25 @@ class TemplateManager:
 
     def get_template(self, fmt):
         fmt = fmt.lower()
-        if fmt == "json":
-            return deepcopy(self._get_json())
-        elif fmt == "xml":
-            return self._get_xml().getroot()  # Return the root element
-        elif fmt == "csv":
-            return list(self._get_csv_headers())
-        elif fmt == "txt":
-            return str(self._get_txt_template())
+
+        if fmt not in SUPPORTED_OUTPUT_EXTENSIONS:
+            raise ValueError(f"Unsupported output format: {fmt}")
+
+        if fmt not in FORMATS_REQUIRING_TEMPLATES:
+            return None  #parquet, srt, vtt don’t need templates
+
+        loader_map = {
+            "json": self._get_json,
+            "xml": lambda: self._get_xml().getroot(),
+            "csv": self._get_csv_headers,
+            "txt": self._get_txt_template
+        }
+
+        loader = loader_map.get(fmt)
+        if loader:
+            return deepcopy(loader()) if fmt == "json" else loader()
         else:
-            raise ValueError(f"No template available for format: {fmt}")
+            raise ValueError(f"No loader defined for format: {fmt}")
 
     def _get_json(self):
         if self._json is None:
@@ -44,7 +57,8 @@ class TemplateManager:
         if self._csv_headers is None:
             path = os.path.join(self.template_dir, "transcript_template.csv")
             with open(path, "r", encoding="utf-8") as f:
-                self._csv_headers = [row[0] for row in csv.reader(f) if row]
+                reader = csv.reader(f)
+                self._csv_headers = next(reader)  # read first (header) row
         return self._csv_headers
 
     def _get_txt_template(self):

@@ -8,7 +8,7 @@ Supported audio formats include .mp3, .m4a, .wav, .wma, .flac, .ogg, and .aac, p
 
 Users can choose between One Shot batch transcription or Continuous Directory Monitoring to automatically process new files at set intervals. Output formats include .txt, .csv, .json, and .xml, with optional translation to English for supported languages.
 
-Version 1.4.0 introduces Automated Speaker Recognition, powered by Pyannote’s state-of-the-art diarization pipeline, enabling clearer attribution in multi-speaker environments.
+Version 1.4.0 introduces Automated Speaker Identification, powered by Pyannote’s state-of-the-art diarization pipeline, enabling clearer attribution in multi-speaker environments.
 
 Built with configurability and reliability in mind, this tool is ideal for professionals seeking accurate, flexible, and efficient audio transcription at scale.
 
@@ -22,7 +22,7 @@ Built with configurability and reliability in mind, this tool is ideal for profe
 
     🤖 Transcriptions powered by [OpenAI’s Whisper](https://github.com/openai/whisper)** — select from all available models to balance speed, size, and accuracy
 
-    🔊 Automated Speaker Recognition powered by [Pyannote-Audio](https://github.com/pyannote/pyannote-audio)** — automatically detects and assigns speaker labels 
+    🔊 Automated Speaker Identification powered by [Pyannote-Audio](https://github.com/pyannote/pyannote-audio)** — automatically detects and assigns speaker labels 
 
     🎧 Supports .mp3, .m4a, .wav, .wma, .flac, .ogg, and .aac audio formats
 
@@ -148,7 +148,7 @@ MIT License
 
  🙌 Acknowledgements
 
-- [OpenAI Whisper](https://github.com/openai/whisper) – for the powerful open-source speech recognition models  
+- [OpenAI Whisper](https://github.com/openai/whisper) – for the powerful open-source speech identification models  
 - [pyannote-audio](https://github.com/pyannote/pyannote-audio) – for enabling automated speaker diarization  
 - [ttkbootstrap](https://github.com/israel-dryer/ttkbootstrap) – for modern, themeable UI components  
 - [PyTorch](https://pytorch.org/) – for the deep learning backend powering both Whisper and Pyannote  

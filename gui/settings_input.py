@@ -7,7 +7,7 @@ from services.constants import LANGUAGE_MAP
 
 
 class SettingsInputFrame(ttk.LabelFrame):
-    def __init__(self, parent, input_dir_var, language_var,monitoring_enabled_var, monitoring_interval_var, styles, label_font=None,browse_callback=None, **kwargs):
+    def __init__(self, parent, input_dir_var, language_var,monitoring_enabled_var, monitoring_interval_var, styles, label_font=None,browse_callback=None,view_callback=None, **kwargs):
         super().__init__(parent, text="Input Settings", bootstyle=styles["input"]["frame"], **kwargs)
 
         self.columnconfigure(0, weight=1)
@@ -18,6 +18,7 @@ class SettingsInputFrame(ttk.LabelFrame):
         self.monitoring_interval_var = monitoring_interval_var
         self.styles = styles
         self.browse_callback = browse_callback 
+        self.view_callback = view_callback
 
         # Row 0 – Input Directory Label
         ttk.Label(
@@ -37,12 +38,26 @@ class SettingsInputFrame(ttk.LabelFrame):
         )
         entry_input.grid(row=1, column=0, padx=(5, 0), pady=5, sticky="ew")
 
+        # 🧱 Sub-frame to hold Browse + View buttons
+        button_group = ttk.Frame(self)
+        button_group.grid(row=1, column=1, padx=(5, 5), pady=5, sticky="w")
+
+        # Browse Button
         ttk.Button(
-            self,
+            button_group,
             text="Browse",
             command=self.browse_callback,
             bootstyle=styles["input"]["button_browse"]
-        ).grid(row=1, column=1, padx=(5, 5), pady=5, sticky="w")
+        ).grid(row=0, column=0, padx=(0, 4))
+
+        # View Button (icon only)
+        ttk.Button(
+            button_group,
+            text="📂",
+            width=3,
+            command=self.view_callback,
+            bootstyle=styles["input"]["button_view"]
+        ).grid(row=0, column=1)
 
         # Row 2 – Language Label + Monitoring Toggle
         ttk.Label(
@@ -146,3 +161,5 @@ class SettingsInputFrame(ttk.LabelFrame):
         # Notify output settings to update checkbox state
         if hasattr(self, "output_frame"):
             self.output_frame.update_translate_state()
+
+            

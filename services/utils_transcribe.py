@@ -1,38 +1,142 @@
 # File: transcribe_audio_service/services/utils_transcribe.py
 import os
-import json
-import csv
+from services.utils_models import get_whisper_model
 import datetime
-from mutagen import File as MutagenFile
-from copy import deepcopy
-from xml.etree.ElementTree import ElementTree
+from tinytag import TinyTag
+from services.constants import LANGUAGE_MAP
+from services.utils_output import SAVE_OUTPUT_FUNCTIONS
+import pandas as pd
 import re
-from services.constants import LANGUAGE_MAP, BATCH_SIZE_THRESHOLDS, SPEAKER_LABEL_MAP
-import torch
 
-def _expand_key(compact_key):
+def transcribe_file(
+    audio_mp3_path,
+    model_name="medium",
+    language="en",
+    translate_to_english=False,
+):
     """
-    Converts template keys like 'AudioFileName' to 'Audio File Name'
-    to match metadata dictionary keys.
+    Prepares audio and runs Whisper transcription.
+
+    Returns:
+        dict: Whisper result with "text" and optional "segments"
     """
-    return " ".join([w for w in re.findall(r'[A-Z][a-z]*', compact_key)])
+    model, device = get_whisper_model(model_name)
 
-def get_lang_name(code):
-    for name, lang_code in LANGUAGE_MAP.items():
-        if lang_code == code:
-            return name
-    return code  # fallback to code if no match found
+    return run_whisper_transcription(
+        audio_mp3_path=audio_mp3_path,
+        model=model,
+        device=device,
+        language=language,
+        translate_to_english=translate_to_english
+    )
 
-def get_transcription_metadata(file_path, input_language, output_language, model_used, processing_device=None,batch_size=8):
+
+def run_whisper_transcription(
+    audio_mp3_path,
+    model,
+    device,
+    language="en",
+    translate_to_english=False,
+):
+    """
+    Runs Whisper transcription on a prepared MP3 file.
+    """
+    try:
+        transcribe_args = {
+            "language": language,
+            "fp16": (device == "cuda")
+        }
+
+        if translate_to_english and language != "en":
+            transcribe_args["task"] = "translate"
+
+        result = model.transcribe(audio_mp3_path, **transcribe_args)
+        print(audio_mp3_path)
+
+        return result
+
+    except Exception as e:
+        print(f"❌ Whisper failed with error: {e}")
+        return {"error": str(e)}
+    
+
+
+
+def save_transcript(
+    output_path,
+    result,
+    template,
+    input_file=None,
+    input_language="en",
+    output_language="en",
+    model_used=None,
+    processing_device=None,
+    batch_size=8,
+    use_diarization=False,
+    output_format="txt",
+):
+    # Get metadata
+    if input_file:
+        metadata = get_transcription_metadata(
+            input_file, input_language, output_language,
+            model_used, processing_device, batch_size
+        )
+    else:
+        metadata = {}
+
+    flat_metadata = {
+        **metadata.get("Input", {}),
+        **metadata.get("Output", {})
+    }
+
+    
+    
+    # Extract raw transcription and segments
+    raw_text = result.get("text", "")
+    segments = result.get("segments", [])
+
+    if segments:
+        df = parse_segments_to_dataframe({"segments": segments, "text": raw_text})
+    else:
+        df = None
+
+    if use_diarization and df is not None:
+        diarized_lines = []
+        for _, row in df.iterrows():
+            speaker_label = "[Speaker]"  # You can replace with actual mapping later
+            line = f"{speaker_label} {row['text'].strip()}"
+            diarized_lines.append(line)
+        raw_text = "\n".join(diarized_lines)
+
+    # Step 3: Final merge
+    merged_data = {
+        "Input": metadata.get("Input", {}),
+        "Output": metadata.get("Output", {}),
+        "Transcription Text": raw_text,
+        "Flat": flat_metadata,
+        "Raw Text": raw_text,
+        "Template": template,
+        "DataFrame": df  # only used by srt/vtt
+    }
+    
+
+    # Dispatch to correct format
+    output_format = output_format.lower()
+    if output_format in SAVE_OUTPUT_FUNCTIONS:
+        SAVE_OUTPUT_FUNCTIONS[output_format](output_path, merged_data)
+    else:
+        raise ValueError(f"Unsupported output format: {output_format}")
+
+
+def get_transcription_metadata(file_path, input_language, output_language, model_used, processing_device=None, batch_size=8):
     """Returns categorized metadata for the transcription process."""
 
     # Get basic file properties
     input_section = {
         "Audio File Name": os.path.basename(file_path),
-        "Audio File Creation Date": datetime.datetime.fromtimestamp(os.path.getctime(file_path)).strftime("%Y-%m-%d %H:%M:%S"),
+        "Audio File Creation Date": datetime.datetime.fromtimestamp(os.path.getctime(file_path)),
         "Audio Language": input_language,
         "Audio File Item Type": os.path.splitext(file_path)[1][1:]  # e.g., 'mp3', 'wav'
-        
     }
 
     # File size
@@ -42,35 +146,27 @@ def get_transcription_metadata(file_path, input_language, output_language, model
     except Exception:
         input_section["Audio File Size"] = "Unknown"
 
-    # Audio properties via mutagen
+    # Audio properties via tinytag
     try:
-        audio = MutagenFile(file_path)
-        if audio is not None and hasattr(audio, "info"):
-            duration_sec = getattr(audio.info, "length", None)
-            bitrate = getattr(audio.info, "bitrate", None)
+        tag = TinyTag.get(file_path)
+        duration_sec = tag.duration
+        bitrate = tag.bitrate
 
-            if duration_sec is not None:
-                minutes, seconds = divmod(int(duration_sec), 60)
-                input_section["Audio File Length"] = f"{minutes:02}:{seconds:02} ({round(duration_sec, 2)} sec)"
-            else:
-                input_section["Audio File Length"] = "Unknown"
-
-            if bitrate is not None:
-                input_section["Audio Bit Rate"] = f"{round(bitrate / 1000, 2)} kbps"
-            else:
-                input_section["Audio Bit Rate"] = "Unknown"
-        else:
-            input_section["Audio File Length"] = "Unknown"
-            input_section["Audio Bit Rate"] = "Unknown"
-
+        input_section["Audio File Length"] = (
+            f"{int(duration_sec // 60):02}:{int(duration_sec % 60):02} ({round(duration_sec, 2)} sec)"
+            if duration_sec is not None else "Unknown"
+        )
+        input_section["Audio Bit Rate"] = (
+            f"{round(bitrate, 2)} kbps" if bitrate is not None else "Unknown"
+        )
     except Exception:
         input_section["Audio File Length"] = "Error"
         input_section["Audio Bit Rate"] = "Error"
 
-    return {
+    metadata = {
         "Input": input_section,
         "Output": {
-            "Transcription Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Transcription Date": datetime.datetime.now(),
             "Whisper Model": model_used,
             "Whisper Processing Device": processing_device or "Unknown",
             "Whisper Batch Size": batch_size,
@@ -78,109 +174,9 @@ def get_transcription_metadata(file_path, input_language, output_language, model
         }
     }
 
-def save_transcript(output_path, text, template, input_file=None, input_language="en", output_language="en",
-                    model_used=None,processing_device=None,batch_size=8, use_diarization=False, output_format="txt"):
-    """
-    Save the transcription output to various formats using the provided template.
-
-    Parameters:
-        output_path (str): Full path including filename and extension.
-        text (str): The transcription text.
-        template (object): Preloaded template object (dict, string, list, or ElementTree root).
-        input_file (str): Path to the original audio file (for metadata).
-        input_language (str): Language code of the original audio.
-        output_language (str): Language code of the output transcript.
-        output_format (str): One of 'txt', 'json', 'csv', 'xml'.
-    """
-    metadata = get_transcription_metadata(input_file, input_language, output_language, model_used, processing_device, batch_size) if input_file else {}
-
-    # Flatten nested metadata for string-based templates like .txt
-    flat_metadata = {
-        **metadata.get("Input", {}),
-        **metadata.get("Output", {})
-    }
-    
-    #transcribe_file_with_diarization() txt output post processing
-    if use_diarization:
-        try:
-            text = group_transcript_blocks(text)
-            text = localize_speaker_labels(text, output_language)
-        except Exception as e:
-            print("⚠️ Diarization post-processing failed:", str(e))
-
-    # Merge flat metadata with transcription text
-    merged_data = {**flat_metadata, "Transcription Text": text}
-
-    if output_format == "txt":
-        # Template is a string with placeholders
-        rendered = template.format(**merged_data)
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(rendered)
-
-    elif output_format == "json":
-        json_data = deepcopy(template)
-        json_data["Input"] = metadata.get("Input", {})
-        json_data["Output"] = metadata.get("Output", {})
-        json_data["Transcription Text"] = text
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(json_data, f, ensure_ascii=False, indent=2)
-
-    elif output_format == "csv":
-       # Template headers like ['AudioFileName', 'AudioFileCreationDate', ...]
-        rows = [(field, text if field == "Transcription Text" else flat_metadata.get(_expand_key(field), ""))
-    for field in template
-]
-        with open(output_path, "w", encoding="utf-8", newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(["Field", "Value"])
-            writer.writerows(rows)
-
-    elif output_format == "xml":
-        root = deepcopy(template)
-        
-        for child in root:
-            tag = child.tag
-
-            if tag == "Input":
-                for sub in child:
-                    value = metadata.get("Input", {}).get(_expand_key(sub.tag))
-                    if value is not None:
-                        sub.text = str(value) 
-
-            elif tag == "Output":
-                for sub in child:
-                    value = metadata.get("Output", {}).get(_expand_key(sub.tag))
-                    if value is not None:
-                        sub.text = str(value) 
-
-            elif tag == "TranscriptionText":
-                child.text = text
-
-        tree = ElementTree(root)
-        tree.write(output_path, encoding="utf-8", xml_declaration=True)
-
-    else:
-        raise ValueError(f"Unsupported output format: {output_format}")
+    return metadata
 
 
-def get_device_status():
-    """Returns a tuple (device_str, cuda_available_bool)."""
-    if torch.cuda.is_available():
-        device = torch.cuda.get_device_name(0)
-        return (device, True)
-    return ("CPU", False)
-
-def get_optimal_batch_size(vram_gb, using_gpu):
-    if not using_gpu:
-        return BATCH_SIZE_THRESHOLDS["low"]["batch_size"]
-
-    if vram_gb >= BATCH_SIZE_THRESHOLDS["high"]["vram"]:
-        return BATCH_SIZE_THRESHOLDS["high"]["batch_size"]
-    elif vram_gb >= BATCH_SIZE_THRESHOLDS["medium"]["vram"]:
-        return BATCH_SIZE_THRESHOLDS["medium"]["batch_size"]
-    else:
-        return BATCH_SIZE_THRESHOLDS["low"]["batch_size"]
     
 def qualifies_for_batch_processing(file_path, use_diarization):
     try:
@@ -189,77 +185,43 @@ def qualifies_for_batch_processing(file_path, use_diarization):
     except Exception:
         return False  # Fail safe: assume no
     
-def parse_diarized_line(line):
+
+def format_timestamp(seconds: float) -> str:
     """
-    Extract timestamp, speaker label, and text from one diarized line.
-    Format expected: [00:00:00.008 - 00:00:02.504] SPEAKER_00: some text
+    Formats float seconds into HH:MM:SS.mmm timestamp.
     """
-    match = re.match(r"\[(.*?) - (.*?)\] (SPEAKER_\d+): (.*)", line)
-    if match:
-        return {
-            "start": match.group(1).strip(),
-            "end": match.group(2).strip(),
-            "speaker": match.group(3).strip(),
-            "text": match.group(4).strip()
-        }
-    return None
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    return f"{hours:02}:{minutes:02}:{seconds:06.3f}"
 
-def group_transcript_blocks(text, lang_code="en"):
-    lines = [parse_diarized_line(line) for line in text.strip().splitlines()]
-    lines = [line for line in lines if line is not None]
+def parse_segments_to_dataframe(result):
+    segments = result.get("segments", [])
+    srt_data = []
+    for seg in segments:
+        start_time = format_time(seg["start"])
+        end_time = format_time(seg["end"])
+        srt_data.append({
+            "id": seg["id"],
+            "start": seg["start"],
+            "end": seg["end"],
+            "start_time": start_time,
+            "end_time": end_time,
+            "text": seg["text"]
+        })
+    return pd.DataFrame(srt_data)
 
-    if not lines:
-        return text
+def format_time(seconds):
+    """Convert float seconds to SRT time format (HH:MM:SS,mmm)."""
+    ms = int((seconds - int(seconds)) * 1000)
+    h, rem = divmod(int(seconds), 3600)
+    m, s = divmod(rem, 60)
+    return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
-    # Map speaker labels to consistent indexes
-    speaker_map = {}
-    speaker_counter = 0
+def get_lang_name(code):
+    for name, lang_code in LANGUAGE_MAP.items():
+        if lang_code == code:
+            return name
+    return code  # fallback to code if no match found
 
-    def get_mapped_speaker(speaker_raw):
-        nonlocal speaker_counter
-        if speaker_raw not in speaker_map:
-            speaker_map[speaker_raw] = speaker_counter
-            speaker_counter += 1
-        return get_speaker_label(lang_code, speaker_map[speaker_raw])
 
-    grouped = []
-    current = lines[0].copy()
-    current["speaker"] = get_mapped_speaker(current["speaker"])
-
-    for line in lines[1:]:
-        mapped_speaker = get_mapped_speaker(line["speaker"])
-        if mapped_speaker == current["speaker"]:
-            current["end"] = line["end"]
-            current["text"] += " " + line["text"]
-        else:
-            grouped.append(current)
-            current = line.copy()
-            current["speaker"] = mapped_speaker
-    grouped.append(current)
-
-    final_text = "\n".join(
-        f"[{block['start']} - {block['end']}] {block['speaker']}: {block['text']}"
-        for block in grouped
-    )
-    return final_text
-
-def get_speaker_label(lang_code, speaker_index):
-    label_prefix = SPEAKER_LABEL_MAP.get(lang_code, "SPEAKER")
-    if lang_code == "ja":
-        return f"{label_prefix} {speaker_index + 1}"
-    else:
-        return f"{label_prefix}_{speaker_index:02d}"
-    
-def localize_speaker_labels(text: str, language: str) -> str:
-    """
-    Replaces 'SPEAKER_00', 'SPEAKER_01', etc. with localized speaker labels
-    based on language-specific mapping.
-    """
-    base_label = SPEAKER_LABEL_MAP.get(language, "SPEAKER")
-
-    def replace_label(match):
-        number = int(match.group(1))
-        return f"{base_label} {number + 1}"
-
-    # Match 'SPEAKER_00', 'SPEAKER_01', etc.
-    return re.sub(r"SPEAKER_(\d{2})", replace_label, text)

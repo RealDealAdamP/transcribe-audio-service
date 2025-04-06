@@ -59,3 +59,10 @@ SUPPORTED_AUDIO_EXTENSIONS = (
     ".mp3", ".m4a", ".wav", ".wma", ".flac", ".ogg",
     ".aac"
 )
+
+SUPPORTED_OUTPUT_EXTENSIONS = (
+    "csv", "json", "txt", "xml", "parquet", "srt",
+    "vtt"
+)
+
+FORMATS_REQUIRING_TEMPLATES = ("txt", "json", "xml", "csv")

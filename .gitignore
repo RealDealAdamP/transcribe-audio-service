@@ -194,8 +194,14 @@ cython_debug/
 *.m4a
 *.wav
 
+# Ignore license audit if generated dynamically
+THIRD_PARTY_LICENSES.txt
+
 # Whisper model cache
 .whisper/
+
+# Python virtual environments
+**/.venv/
 
 # Python cache directories
 __pycache__/
