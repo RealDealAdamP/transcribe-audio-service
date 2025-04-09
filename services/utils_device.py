@@ -1,7 +1,6 @@
 # File: transcribe_audio_service/services/utils_device.py
 import torch 
 from services.constants import BATCH_SIZE_THRESHOLDS
-import torch 
 import psutil
 import platform
 
@@ -10,8 +9,29 @@ try:
     pynvml.nvmlInit()
     GPU_AVAILABLE = True
     print("✔ GPU_AVAILABLE =", GPU_AVAILABLE)
+
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+    memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    driver_version = pynvml.nvmlSystemGetDriverVersion().decode("utf-8")
+    cuda_version = pynvml.nvmlSystemGetCudaDriverVersion()
+
+    major = cuda_version // 1000
+    minor = (cuda_version % 1000) // 10
+    formatted_cuda_version = f"{major}.{minor}"
+
+    GPU_INFO = {
+        "name": name,
+        "total_memory_MB": memory.total // 1024**2,
+        "driver_version": driver_version,
+        "cuda_version": formatted_cuda_version,
+    }
+
+    print(f"🧠 GPU Info: {GPU_INFO}")
+
 except Exception as e:
     GPU_AVAILABLE = False
+    GPU_INFO = {"error": str(e)}
     print("❌ GPU_AVAILABLE =", GPU_AVAILABLE)
     print("🔍 NVML Exception:", e)
 

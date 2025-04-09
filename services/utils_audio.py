@@ -8,7 +8,7 @@ from services.constants import SUPPORTED_AUDIO_EXTENSIONS
 
 def prep_whisper_audio(path, temp_dir, target_sr=16000, bitrate="32k"):
     """
-    Convert audio to optimized MP3 format for Whisper using FFmpeg.
+    Convert audio to high-fidelity MP3 format for Whisper using FFmpeg.
 
     Returns:
         str: Path to the newly converted MP3 file.
@@ -18,9 +18,9 @@ def prep_whisper_audio(path, temp_dir, target_sr=16000, bitrate="32k"):
 
     command = [
         "ffmpeg", "-i", path,
-        "-ac", "1",                   # mono
-        "-ar", str(target_sr),       # sample rate
-        "-b:a", bitrate,             # bit rate
+        "-ac", "1",                    # mono
+        "-ar", str(target_sr),        # 16 kHz
+        "-b:a", bitrate,              # 32 kbps
         "-f", "mp3",
         compressed_mp3_path,
         "-y"
@@ -28,7 +28,6 @@ def prep_whisper_audio(path, temp_dir, target_sr=16000, bitrate="32k"):
 
     subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return compressed_mp3_path
-
 
 
 def list_audio_files(directory, extensions=SUPPORTED_AUDIO_EXTENSIONS):

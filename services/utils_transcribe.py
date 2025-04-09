@@ -94,12 +94,13 @@ def save_transcript(
     # Extract raw transcription and segments
     raw_text = result.get("text", "")
     segments = result.get("segments", [])
-
+    
     if segments:
         df = parse_segments_to_dataframe({"segments": segments, "text": raw_text})
     else:
         df = None
-
+   
+    
     if use_diarization and df is not None:
         diarized_lines = []
         for _, row in df.iterrows():
@@ -186,16 +187,10 @@ def qualifies_for_batch_processing(file_path, use_diarization):
         return False  # Fail safe: assume no
     
 
-def format_timestamp(seconds: float) -> str:
-    """
-    Formats float seconds into HH:MM:SS.mmm timestamp.
-    """
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    seconds = seconds % 60
-    return f"{hours:02}:{minutes:02}:{seconds:06.3f}"
-
 def parse_segments_to_dataframe(result):
+
+    """Required for valid SRT / VTT output"""
+
     segments = result.get("segments", [])
     srt_data = []
     for seg in segments:
@@ -209,6 +204,7 @@ def parse_segments_to_dataframe(result):
             "end_time": end_time,
             "text": seg["text"]
         })
+    pd.DataFrame(srt_data).to_csv(r"C:\demo\parse_srt_Data.csv", index=False, float_format="%.8f")
     return pd.DataFrame(srt_data)
 
 def format_time(seconds):

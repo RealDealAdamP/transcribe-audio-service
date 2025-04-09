@@ -118,3 +118,5 @@ class DeviceMonitorFrame(ttk.LabelFrame):
             meter.configure(bootstyle=self.styles["monitor"]["low"])
         else:
             meter.configure(bootstyle=self.styles["monitor"]["high"])
+
+            

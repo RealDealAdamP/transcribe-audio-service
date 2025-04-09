@@ -71,7 +71,9 @@ dark:Typically a dark gray color
             "label_status": "warning",
             "label_output_txt": "warning",
             "entry_search":"warning",
-            "button_refresh": "warning"
+            "button_refresh": "warning",
+            "label_cluster" : "warning"
+
         },
         "controls": {
             "button_transcribe": "success",

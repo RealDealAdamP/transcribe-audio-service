@@ -104,6 +104,45 @@ README.md
 </pre>
 ---
 
+🗣️ Acoustic Diarization Pipeline 
+
+<pre>
+📥 Input: MP3 audio file (pre-converted to 16kHz, 32kbps)
+
+  |
+  v
+🎧 Step 0: Apply Silero VAD
+    └─ Load audio with Librosa → generate voiced frame mask
+
+  |
+  v
+🎛️ Step 1: Extract Librosa Features
+    └─ MFCCs, Deltas, Spectral Features, f0, Chroma, ZCR, etc.
+    └─ Filter non-voiced frames using VAD mask
+
+  |
+  v
+🧽 Step 2: Smooth + Scale Features
+    └─ Rolling median + z-score normalization
+
+  |
+  v
+🔬 Step 2.5: Apply PCA
+    └─ Reduce dimensionality of frame-level features
+
+  |
+  v
+🧠 Step 3: Frame-Level Clustering
+    └─ Cluster frames using HDBSCAN → assign `speaker_id`
+
+  |
+  v
+📤 Output:
+    ├─ `clustered_df`: frame-level speaker assignments
+    └─ `speaker_summary`: total frame count per speaker
+</pre>
+
+
 🧾 Requirements
 Python 3.9 or later
 ffmpeg installed and in your system PATH (required by Whisper)

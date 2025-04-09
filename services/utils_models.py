@@ -2,6 +2,7 @@
 import whisper
 import re
 from services.utils_device import get_device_status
+import pandas as pd
 
 # Internal model cache
 _model_cache = {}
@@ -24,46 +25,45 @@ def get_whisper_model(model_name="medium"):
     model = get_model(model_name)
     return model.to(device), device
 
-def merge_whisper_segments(segments, punctuation_merge=True):
+def find_new_seg_id(segments, punctuation_merge=True):
     """
-    Merge fragmented Whisper segments and update timestamps accordingly.
+    Assigns a new segment ID to each Whisper segment by grouping adjacent
+    fragments based on punctuation criteria, while retaining all original
+    segment metadata.
 
     Parameters:
-    - segments (list): List of Whisper-style segment dicts
-    - punctuation_merge (bool): If True, only merge if previous segment lacks terminal punctuation.
+        segments (list): List of Whisper segment dicts (each must include 'start', 'end', and 'text')
+        punctuation_merge (bool): If True, only merge with prior segment if it lacks terminal punctuation.
 
     Returns:
-    - List of merged segment dicts with updated start/end and merged text.
+        List of segment dicts with an additional field: 'new_segment_id'.
     """
-    merged_segments = []
-    current = None
+    updated_segments = []
+    seg_id = 1
+    current_group = []
 
     for seg in segments:
         text = seg["text"].strip()
 
-        if current is None:
-            current = seg.copy()
+        if not current_group:
+            current_group.append(seg)
             continue
 
-        should_merge = False
+        prev_text = current_group[-1]["text"].strip()
+        ends_with_punct = bool(re.search(r"[.?!…]$", prev_text))
 
-        if punctuation_merge:
-            should_merge = not re.search(r"[.?!…]$", current["text"].strip())
+        if punctuation_merge and ends_with_punct:
+            for s in current_group:
+                updated_segments.append({**s, "new_segment_id": seg_id})
+            seg_id += 1
+            current_group = [seg]
         else:
-            should_merge = True
+            current_group.append(seg)
 
-        if should_merge:
-            # Merge current and seg
-            current["text"] = current["text"].rstrip() + " " + text
-            current["end"] = seg["end"]
-        else:
-            # Push current and start new
-            merged_segments.append(current)
-            current = seg.copy()
+    if current_group:
+        for s in current_group:
+            updated_segments.append({**s, "new_segment_id": seg_id})
 
-    if current:
-        merged_segments.append(current)
-
-    return merged_segments
+    return updated_segments
 
 

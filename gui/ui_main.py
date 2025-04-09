@@ -14,16 +14,17 @@ from gui.queue_display import QueueFrame
 from gui.service_controls import ServiceControlsFrame
 from gui.device_monitor import DeviceMonitorFrame
 import pandas as pd
-
+from pathlib import Path
 from gui.style_config import get_theme_style, get_bootstyles
-
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 import tempfile
-from services.utils_models import merge_whisper_segments
+from services.utils_models import find_new_seg_id
 from services.utils_audio import list_audio_files, prep_whisper_audio
 from services.utils_device import  get_device_status, get_optimal_batch_size
 from services.utils_transcribe import save_transcript, get_lang_name, qualifies_for_batch_processing,transcribe_file
 from services.utils_diarize import run_diarization_pipeline
-from services.utils_output import load_output_file
+from services.utils_output import load_output_file, save_cluster_data
 from services.version import __version__
 from services.template_manager import TemplateManager
 
@@ -38,6 +39,7 @@ class TranscribeApp:
         self.styles = get_bootstyles()
 
         # Global state variables
+        self.diagnostics_enabled = True
         self.input_dir_var = tk.StringVar()
         self.output_dir_var = tk.StringVar()
         self.model_var = ttk.StringVar(value="medium")
@@ -68,7 +70,7 @@ class TranscribeApp:
 
     def _configure_root_window(self):
         self.root.title(f"Transcribe Audio Service v{__version__}")
-        self.root.geometry("1000x900")
+        self.root.geometry("1400x900")
         self.root.resizable(False, False) 
 
     def _build_ui(self):
@@ -357,20 +359,40 @@ class TranscribeApp:
 
                 # Merge segments *before* passing to diarization pipeline
                 segments = result.get("segments", [])
-                if segments:
-                    merged_segments = merge_whisper_segments(segments)
-                    result["segments"] = merged_segments  # overwrite with cleaned segments
+                # 🐞 Optional: dump segments for debug
+                #pd.DataFrame(segments).to_csv(r"C:\demo\get_whisper_segments.csv", index=False, float_format="%.8f")
 
+                if segments:
+                    merged_segments = find_new_seg_id(segments)
+                    result["segments"] = merged_segments  # overwrite with cleaned segments
+                    pd.DataFrame(result["segments"]).to_csv(r"C:\demo\get_whisper_merged_segments_output.csv", index=False, float_format="%.8f")
+                    
                 if self.use_diarization:
                     diarization_result = run_diarization_pipeline(
                         audio_mp3_path,
                         result["segments"],
                         diagnostics=True
                     )
+                   # Step 1: Overwrite final speaker-labeled segments
+                    result["segments"] = diarization_result["segments"]
 
-                    for stage, summary_df in diarization_result["diagnostics"].items():
-                        print(f"\n📊 Speaker Summary at stage: {stage}")
-                        print(summary_df)
+                    # Step 2: Save cluster data to file (for UI scatter plot)
+                    cluster_df = diarization_result.get("cluster_data")
+                    if cluster_df is not None:
+                        
+                        save_cluster_data(
+                            df=cluster_df,
+                            filename=filename,        # must be the original input file, not temp mp3
+                            output_dir=self.output_dir    # from @property → e.g., /user/output/
+                        )
+
+                    # Step 3: Optional diagnostic printout (for dev mode)
+                    if self.diagnostics_enabled:
+                        diagnostics = diarization_result.get("diagnostics", {})
+                        for stage, summary_df in diagnostics.items():
+                            print(f"\n📊 Speaker Summary at stage: {stage}")
+                            print(summary_df)
+
                                             
             except Exception as e:
                 print(f"❌ Transcription or Librosa Diarization failed: {e}")
@@ -475,9 +497,11 @@ class TranscribeApp:
         filename = self.listbox_queue.get(index)
         status = self.status_queue.get(index)
         transcript_path = os.path.join(self.output_dir, f"{os.path.splitext(filename)[0]}.{self.output_extension}")
-
+    
+        self.queue_frame.display_cluster_plot(filename, self.output_dir)
         self.output_box.config(state="normal")
         self.output_box.delete("1.0", tk.END)
+
 
         if status == "Completed" and os.path.exists(transcript_path):
             output_text = load_output_file(transcript_path)
@@ -580,6 +604,9 @@ class TranscribeApp:
             os.startfile(directory)  # Windows only
         except Exception as e:
             messagebox.showerror("Error Opening Directory", str(e))
+
+     
+
     # ────────────────────────────────────────────────
     # UI Property Accessors
     # ────────────────────────────────────────────────
