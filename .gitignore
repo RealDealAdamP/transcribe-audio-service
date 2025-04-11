@@ -210,3 +210,7 @@ transcribe_audio_service/**/__pycache__/
 # Exclude model caches and local weights
 .models/
 cache_models/
+
+# Cluster data folder — include folder, ignore contents
+cluster_data/*
+!cluster_data/.gitkeep

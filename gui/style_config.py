@@ -4,13 +4,25 @@ import ttkbootstrap as ttk
 import tkinter.font as tkfont
 
 def get_theme_style():
-    """
-    Creates and returns the ttkbootstrap style + shared font config.
-    """
-    style = ttk.Style("cyborg")  # You could later pass this dynamically
-    icon_font = tkfont.Font(size=14, weight="bold")
-    label_font = tkfont.Font(size=11, weight="bold")    # For section labels
-    return style, icon_font, label_font
+    style = ttk.Style("cyborg")
+
+    # Icon fonts
+    icon_font = ("Segoe UI Emoji", 18, "bold")
+    bg = "#060606"
+
+    # Safe, compound style names
+    style.configure("IconSuccess.TButton", font=icon_font, foreground="#77b303", background=bg)
+    style.configure("IconInfo.TButton", font=icon_font, foreground="#9933cc", background=bg)
+    style.configure("IconWarning.TButton", font=icon_font, foreground="#ff8803", background=bg)
+    style.configure("IconDanger.TButton", font=icon_font, foreground="red", background=bg)
+
+    fonts = {
+        "label": tkfont.Font(size=11, weight="bold"),
+        "icon": tkfont.Font(family="Segoe UI Emoji", size=18, weight="bold")
+    }
+
+    return style, fonts
+
 
 def get_bootstyles():
     """
@@ -29,6 +41,15 @@ dark:Typically a dark gray color
     
     """
     return {
+
+
+        "splash": {
+            "frame": "dark",
+            "label_title": "info",
+            "label_status": "secondary",
+            "progressbar": "primary-striped"
+        },
+        
         "input": {
             "frame": "success",
             "label_input_dir": "success",

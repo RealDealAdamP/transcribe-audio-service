@@ -134,21 +134,21 @@ SAVE_OUTPUT_FUNCTIONS = {
 # Helper Methods
 # ────────────────────────────────────────────────
 
-def save_cluster_data(df, filename, output_dir, format="feather"):
+def save_cluster_data(df, filename, format="feather"):
     """
-    Save cluster data for UI visualization.
+    Save cluster data to a permanent /cluster_data directory for UI visualization.
 
     Parameters:
         df (pd.DataFrame): Must contain 'x', 'y', 'speaker_id'
         filename (str): Original filename (e.g., "call1.wav")
-        output_dir (str or Path): Target save directory
         format (str): 'feather' (default), or 'csv' for fallback
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # 📂 Define permanent cluster data path
+    cluster_dir = Path(__file__).resolve().parent.parent / "cluster_data"
+    cluster_dir.mkdir(parents=True, exist_ok=True)
 
     stem = Path(filename).stem
-    save_path = output_dir / f"{stem}_umap.{format}"
+    save_path = cluster_dir / f"{stem}_umap.{format}"
 
     required_cols = {"x", "y", "speaker_id"}
     if not required_cols.issubset(df.columns):
@@ -165,6 +165,7 @@ def save_cluster_data(df, filename, output_dir, format="feather"):
         print(f"📁 Saved cluster data → {save_path}")
     except Exception as e:
         print(f"❌ Failed to save cluster data: {e}")
+        
 
 def _expand_key(compact_key):
     """

@@ -1,10 +1,11 @@
 # File: transcribe_audio_service/gui/app.py
 
-import ttkbootstrap as ttk
 from gui.ui_main import TranscribeApp
 
-
-def launch_app():
-    root = ttk.Window(themename="darkly")
+def launch_app(root):
+    """
+    Launches the main Transcribe UI using the provided root window.
+    Assumes splash screen logic has already been handled.
+    """
     app = TranscribeApp(root)
-    root.mainloop()
+    return app  # Optionally return the app instance if needed

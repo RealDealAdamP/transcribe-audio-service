@@ -15,18 +15,18 @@ class ServiceControlsFrame(ttk.Frame):
         # Transcribe Button
         btn_transcribe = ttk.Button(
             self.button_row,
-            text="Transcribe",
+            text="▶",
             command=on_start,
-            bootstyle=styles["controls"]["button_transcribe"]
+            style="IconSuccess.TButton"
         )
         btn_transcribe.pack(side="left", padx=(0, 10))
 
         # Stop Button
         btn_stop = ttk.Button(
             self.button_row,
-            text="Stop",
+            text="⏹️",
             command=on_stop,
-            bootstyle=styles["controls"]["button_stop"]
+            style="IconDanger.TButton"
         )
         btn_stop.pack(side="left", padx=(0, 10))
 

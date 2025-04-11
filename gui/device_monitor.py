@@ -111,7 +111,7 @@ class DeviceMonitorFrame(ttk.LabelFrame):
         self._set_style(self.memory_meter, ram_pct)
 
         # Repeat after delay
-        self.after(2000, self.refresh_meters)
+        self.after(1000, self.refresh_meters)
 
     def _set_style(self, meter, percent):
         if percent < 75:

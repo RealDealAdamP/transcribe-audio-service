@@ -30,12 +30,11 @@ from services.template_manager import TemplateManager
 
 
 class TranscribeApp:
-    def __init__(self, root):
+    def __init__(self, root, on_ready=None):
         self.root = root
-        self._configure_root_window()
 
         # Load global style and font
-        self.style, self.icon_font, self.label_font = get_theme_style()
+        self.style, self.fonts = get_theme_style()
         self.styles = get_bootstyles()
 
         # Global state variables
@@ -44,12 +43,11 @@ class TranscribeApp:
         self.output_dir_var = tk.StringVar()
         self.model_var = ttk.StringVar(value="medium")
         self.lang_var = ttk.StringVar(value="en")
-       
         self.output_format_var = tk.StringVar(value="txt")
 
         self.speaker_identification_var = tk.BooleanVar(value=False)
         self.monitoring_enabled_var = tk.BooleanVar(value=False)
-        self.monitoring_interval_var = tk.IntVar(value=300) 
+        self.monitoring_interval_var = tk.IntVar(value=300)
         self.translate_var = tk.BooleanVar(value=False)
 
         # Control flags
@@ -63,15 +61,7 @@ class TranscribeApp:
         self.template_manager = TemplateManager()
         self.active_template = None
 
-        #Set 
 
-        # Build UI
-        self._build_ui()
-
-    def _configure_root_window(self):
-        self.root.title(f"Transcribe Audio Service v{__version__}")
-        self.root.geometry("1400x900")
-        self.root.resizable(False, False) 
 
     def _build_ui(self):
         # Row 0 — Input + Output Settings side by side
@@ -91,7 +81,7 @@ class TranscribeApp:
             monitoring_enabled_var=self.monitoring_enabled_var,
             monitoring_interval_var=self.monitoring_interval_var,
             styles=self.styles,
-            label_font=self.label_font,
+            label_font=self.fonts["label"],        
             browse_callback=self.browse_input_directory,
             view_callback=self.view_input_directory
         )
@@ -105,7 +95,7 @@ class TranscribeApp:
             translate_var=self.translate_var,
             language_var=self.lang_var,
             styles=self.styles,
-            label_font=self.label_font,
+            label_font=self.fonts["label"],
             on_format_change=self.on_output_format_change,
             browse_callback=self.browse_output_directory,
             view_callback=self.view_output_directory
@@ -128,7 +118,7 @@ class TranscribeApp:
             self.Model_Monitor_Wrapper,
             speaker_identification_var=self.speaker_identification_var,
             styles=self.styles,
-            label_font=self.label_font
+            label_font=self.fonts["label"]
         )
         self.model_settings.grid(row=0, column=0, padx=5, pady=2, sticky="nsew")
 
@@ -144,7 +134,8 @@ class TranscribeApp:
             self.root,
             self.on_select_file,
             self.on_double_click_file,
-            self.refresh_directory,
+            on_refresh_click=self.refresh_directory,    # 👈 pass refresh handler
+            on_reset_queue=self.que_reset,    
             styles=self.styles
         )
         self.queue_frame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
@@ -167,6 +158,9 @@ class TranscribeApp:
     # ────────────────────────────────────────────────
     # Helper Methods
     # ────────────────────────────────────────────────
+
+    def initialize_ui(self):
+        self._build_ui()
 
     def set_ui_inputs_state(self, enabled: bool):
         # Prevent enabling the UI if we are in idle monitoring mode
@@ -253,13 +247,78 @@ class TranscribeApp:
         # Re-populate queue
         self.populate_queue(self.input_dir, self.output_dir)
 
+    def que_reset(self):
+        """
+        Deletes output files in the output directory that match the base names of 
+        input audio files and use the currently selected output extension only.
+        """
+
+        if not self.input_dir:
+            messagebox.showerror("Error", "Cannot reset empty queue.")
+            return
+        if self.transcribe_thread and self.transcribe_thread.is_alive():
+            messagebox.showerror("Error", "Cannot reset while queue is active.")
+            return
+        
+        # Valid audio extensions
+        audio_exts = (".mp3", ".wav", ".m4a", ".wma", ".flac", ".ogg", ".aac")
+
+        # Get base names from input audio files
+        input_basenames = {
+            os.path.splitext(f)[0]
+            for f in os.listdir(self.input_dir)
+            if f.lower().endswith(audio_exts)
+        }
+
+        # Normalize extension (e.g., "txt" -> ".txt")
+        target_ext = f".{self.output_extension.lstrip('.')}".lower()
+        deleted_files = []
+
+        for file_name in os.listdir(self.output_dir):
+            base, ext = os.path.splitext(file_name)
+            if ext.lower() == target_ext and base in input_basenames:
+                try:
+                    full_path = os.path.join(self.output_dir, file_name)
+                    os.remove(full_path)
+                    deleted_files.append(file_name)
+                except Exception as e:
+                    print(f"Failed to delete {file_name}: {e}")
+
+        # Show results
+        msg = f"Deleted {len(deleted_files)} directory output file(s)."
+        if deleted_files:
+            msg += "\n\n" + "\n".join(deleted_files[:10])
+            if len(deleted_files) > 10:
+                msg += "\n..."
+
+        messagebox.showinfo("Directory Cleanup 🧹", msg)
+        self.refresh_directory()
+
+
     def populate_queue(self, input_directory, output_directory):
         self.audio_files = list_audio_files(input_directory)
         self.listbox_queue.delete(0, tk.END)
         self.status_queue.delete(0, tk.END)
+        
+        cluster_dir = Path("cluster_data")
+        
         for file in self.audio_files:
+            
             transcript_path = os.path.join(output_directory, f"{os.path.splitext(file)[0]}.{self.output_extension}")
             status = "Completed" if os.path.exists(transcript_path) else "In Queue"
+
+            #Feather cleanup logic (only for non-complete entries)
+            if status != "Completed":
+                stem = Path(file).stem
+                cluster_file = cluster_dir / f"{stem}_umap.feather"
+                if cluster_file.exists():
+                    try:
+                        cluster_file.unlink()
+                        print(f"🧹 Removed stale cluster data → {cluster_file}")
+                    except Exception as e:
+                        print(f"⚠️ Could not remove {cluster_file}: {e}")
+
+
             self.listbox_queue.insert(tk.END, file)
             self.status_queue.insert(tk.END, status)
 
@@ -365,7 +424,7 @@ class TranscribeApp:
                 if segments:
                     merged_segments = find_new_seg_id(segments)
                     result["segments"] = merged_segments  # overwrite with cleaned segments
-                    pd.DataFrame(result["segments"]).to_csv(r"C:\demo\get_whisper_merged_segments_output.csv", index=False, float_format="%.8f")
+                    
                     
                 if self.use_diarization:
                     diarization_result = run_diarization_pipeline(
@@ -373,8 +432,31 @@ class TranscribeApp:
                         result["segments"],
                         diagnostics=True
                     )
+
+
+
+                # 📁 Output directory
+                debug_dir = Path(r"C:\demo\diarization_debug")
+                debug_dir.mkdir(parents=True, exist_ok=True)
+
+                # 🧪 Save each part of the pipeline to separate CSVs
+                for key in ['segments', 'cluster_data', 'diagnostics']:
+                    value = diarization_result.get(key)
+                    if isinstance(value, (list, pd.DataFrame)):
+                        try:
+                            df = pd.DataFrame(value)
+                            out_path = debug_dir / f"{key}.csv"
+                            df.to_csv(out_path, index=False)
+                            print(f"✅ Saved {key} → {out_path}")
+                        except Exception as e:
+                            print(f"⚠️ Could not save {key}: {e}")
+
+
+
                    # Step 1: Overwrite final speaker-labeled segments
                     result["segments"] = diarization_result["segments"]
+                    
+                    pd.DataFrame(result).to_csv(r"C:\demo\diarize_result.csv", index=False, float_format="%.8f")
 
                     # Step 2: Save cluster data to file (for UI scatter plot)
                     cluster_df = diarization_result.get("cluster_data")
@@ -382,8 +464,8 @@ class TranscribeApp:
                         
                         save_cluster_data(
                             df=cluster_df,
-                            filename=filename,        # must be the original input file, not temp mp3
-                            output_dir=self.output_dir    # from @property → e.g., /user/output/
+                            filename=filename        # must be the original input file, not temp mp3
+                                
                         )
 
                     # Step 3: Optional diagnostic printout (for dev mode)
@@ -498,7 +580,7 @@ class TranscribeApp:
         status = self.status_queue.get(index)
         transcript_path = os.path.join(self.output_dir, f"{os.path.splitext(filename)[0]}.{self.output_extension}")
     
-        self.queue_frame.display_cluster_plot(filename, self.output_dir)
+        self.queue_frame.display_cluster_plot(filename)
         self.output_box.config(state="normal")
         self.output_box.delete("1.0", tk.END)
 

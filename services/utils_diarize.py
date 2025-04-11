@@ -5,7 +5,8 @@ import torch
 from silero_vad import load_silero_vad, get_speech_timestamps
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler, MinMaxScaler
+from sklearn.decomposition import PCA
 from pandas.api.types import is_numeric_dtype
 import hdbscan
 import scipy.stats
@@ -22,49 +23,49 @@ def run_diarization_pipeline(audio_path, whisper_segments, return_summary_only=F
     diagnostics_snapshots = {}
     
 
-    with stage_timer("Loading Audio Stage"):
+    with stage_timer("✅ Loading Audio Stage"):
         # Load original audio
         y, sr = librosa.load(audio_path, sr=16000, mono=True)
 
-    with stage_timer("Detect Voice Segments Stage"):
+    with stage_timer("✅ Detect Voice Segments Stage"):
 
         # Extract only voiced parts
         speech_timestamps, is_voiced = detect_voice_segments(y, sr=sr, return_mask=True)
         
         # Get frame_times BEFORE any filtering
         frame_times = librosa.frames_to_time(np.arange(len(is_voiced)), sr=sr, hop_length=160)
+       
         # 🐞 Debug dump: frame index + time
         frame_debug_df = pd.DataFrame({
             "frame_index": np.arange(len(frame_times)),
             "frame_time": frame_times
         })
+        
         frame_debug_df.to_csv(r"C:\demo\frame_times.csv", index=False)
 
-    with stage_timer("Feature Extraction Stage"):
+    with stage_timer("✅ Feature Extraction Stage"):
         # Step 1: Extract Librosa features (frame-level)
-        identify_audio_df = run_librosa_identification(y, sr=sr, is_voiced=is_voiced, frame_times=frame_times)
+        identify_audio_df = run_librosa_identification(y, sr=sr, is_voiced=is_voiced, frame_times=frame_times,log_power=2)
 
-        #identify_audio_df.to_csv(r"C:\demo\normalize_input.csv", index=False)
-    with stage_timer("Feature Normalization Stage"):
+        identify_audio_df.to_csv(r"C:\demo\normalize_input.csv", index=False)
+    with stage_timer("✅ Feature Normalization Stage"):
         # Step 2: Normalize featuers
-        identify_audio_df = normalize_audio_features(
-            identify_audio_df, scale=True, scale_type="zscore"
-        )
+        identify_audio_df = normalize_audio_features(identify_audio_df, scale=True, scale_type="zscore")
 
-    identify_audio_df.to_csv(r"C:\demo\seg_inputput.csv", index=False)
-
-    with stage_timer("Segment Tagging Stage"):
+        identify_audio_df.to_csv(r"C:\demo\normalize_output.csv", index=False)
+    with stage_timer("✅ Segment Tagging Stage"):
         #Setp 3 tag_frames_with_segments
         identify_audio_df = tag_frames_with_segments(identify_audio_df, whisper_segments)
     print()
 
-    identify_audio_df.to_csv(r"C:\demo\seg_output.csv", index=False)
 
-    with stage_timer("Time Aggregation Stage"):    
+    with stage_timer("✅ Time Aggregation Stage"):    
         #Step 4 apply time aggregation by second
         data_for_clustering = apply_time_agg(identify_audio_df,bin_size=1)
 
-    with stage_timer("Feature Clustering Stage"):
+        
+
+    with stage_timer("✅ Feature Clustering Stage"):
         # Step 5: Perform clustering via HDBSCAN & UMAP on selected data
         clustered_df, speaker_summary = cluster_full_features(
             data_for_clustering,
@@ -72,6 +73,9 @@ def run_diarization_pipeline(audio_path, whisper_segments, return_summary_only=F
             min_cluster_size=max(5, int(0.02 * len(data_for_clustering))),
             min_samples=max(2, int(0.01 * len(data_for_clustering)))
         )
+
+    clustered_df.to_csv(r"C:\demo\cluster_df_output.csv", index=False)
+   
 
     if diagnostics:
         diagnostics_snapshots["frame_level_clustering"] = speaker_summary
@@ -84,6 +88,7 @@ def run_diarization_pipeline(audio_path, whisper_segments, return_summary_only=F
         "segments": labeled_segments,  # speaker-labeled Whisper segments
         "cluster_data": clustered_df[["x", "y", "speaker_id"]].copy()
     }
+
 
     if diagnostics:
         result["diagnostics"] = diagnostics_snapshots
@@ -159,26 +164,35 @@ def run_librosa_identification(
     is_voiced=None,
     frame_times=None,
     n_fft=512,
-    n_mfcc=13,
+    n_mfcc=25,
     n_mels=40,
-    fmax=4000
+    fmax=4000,
+    log_power=1  # 💡 New: log power exponent (1 = normal, >1 = emphasized, <1 = disallowed)
 ):
+
     timings = {}
 
-    # 🎛️ Step 1: MFCCs, Delta MFCCs, DDelta MFCCs must be sequential, excluded from threadpool 
+    if log_power < 1:
+        raise ValueError("log_power must be >= 1 for meaningful feature extraction.")
+
+    # 🎛️ Step 1: MFCCs, Delta MFCCs, DDelta MFCCs
     t0 = time.time()
     mel_spec = librosa.feature.melspectrogram(
         y=y, sr=sr, n_fft=n_fft, hop_length=hop_length,
         n_mels=n_mels, fmax=fmax
     )
-    mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel_spec), n_mfcc=n_mfcc)
+
+    # 🔊 Apply optional log power adjustment
+    mel_spec_powered = np.power(mel_spec, log_power)
+    mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel_spec_powered), n_mfcc=n_mfcc)
     timings["mfcc"] = time.time() - t0
 
+    # 🎚️ Δ MFCCs
     t1 = time.time()
     delta_mfcc = librosa.feature.delta(mfcc)
     timings["delta_mfcc"] = time.time() - t1
 
-    # ΔΔ MFCCs
+    # 🎚️ ΔΔ MFCCs
     t2 = time.time()
     ddelta_mfcc = librosa.feature.delta(mfcc, order=2)
     timings["ddelta_mfcc"] = time.time() - t2
@@ -216,15 +230,15 @@ def run_librosa_identification(
         results[name] = result
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        executor.submit(extract_feature,"zcr",lambda: librosa.feature.zero_crossing_rate(y=y, frame_length=n_fft, hop_length=hop_length))
-        executor.submit(extract_feature, "spectral_centroid", lambda: librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
-        executor.submit(extract_feature, "spectral_bandwidth", lambda: librosa.feature.spectral_bandwidth(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
+        #executor.submit(extract_feature,"zcr",lambda: librosa.feature.zero_crossing_rate(y=y, frame_length=n_fft, hop_length=hop_length))
+        #executor.submit(extract_feature, "spectral_centroid", lambda: librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
+        #executor.submit(extract_feature, "spectral_bandwidth", lambda: librosa.feature.spectral_bandwidth(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
         executor.submit(extract_feature, "spectral_contrast", lambda: librosa.feature.spectral_contrast(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
-        executor.submit(extract_feature, "spectral_flatness", lambda: librosa.feature.spectral_flatness(y=y, hop_length=hop_length, n_fft=n_fft))
-        executor.submit(extract_feature, "spectral_rolloff", lambda: librosa.feature.spectral_rolloff(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
-        executor.submit(extract_feature, "rms", lambda: librosa.feature.rms(y=y, frame_length=n_fft, hop_length=hop_length))
+        #executor.submit(extract_feature, "spectral_flatness", lambda: librosa.feature.spectral_flatness(y=y, hop_length=hop_length, n_fft=n_fft))
+        #executor.submit(extract_feature, "spectral_rolloff", lambda: librosa.feature.spectral_rolloff(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
+        #executor.submit(extract_feature, "rms", lambda: librosa.feature.rms(y=y, frame_length=n_fft, hop_length=hop_length))
         executor.submit(extract_feature, "f0", lambda: librosa.yin(y=y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'), sr=sr, hop_length=hop_length))
-        executor.submit(extract_feature, "chroma", lambda: librosa.feature.chroma_stft(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
+        #executor.submit(extract_feature, "chroma", lambda: librosa.feature.chroma_stft(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft))
 
     # 📦 Build feature DataFrame
     df = pd.DataFrame({
@@ -232,19 +246,17 @@ def run_librosa_identification(
         **{f"mfcc_{i+1}": mfcc[i][:n_frames] for i in range(n_mfcc)},
         **{f"delta_mfcc_{i+1}": delta_mfcc[i][:n_frames] for i in range(n_mfcc)},
         **{f"ddelta_mfcc_{i+1}": ddelta_mfcc[i][:n_frames] for i in range(n_mfcc)},
-        "zcr": results["zcr"][0][:n_frames],
-        "spectral_centroid": results["spectral_centroid"][0][:n_frames],
-        "spectral_bandwidth": results["spectral_bandwidth"][0][:n_frames],
-        "spectral_flatness": results["spectral_flatness"][0][:n_frames],
-        "spectral_rolloff": results["spectral_rolloff"][0][:n_frames],
-        "rms": results["rms"][0][:n_frames],
+        #"zcr": results["zcr"][0][:n_frames],
+        #"spectral_centroid": results["spectral_centroid"][0][:n_frames],
+        #"spectral_bandwidth": results["spectral_bandwidth"][0][:n_frames],
+        #"spectral_flatness": results["spectral_flatness"][0][:n_frames],
+        #"spectral_rolloff": results["spectral_rolloff"][0][:n_frames],
+        #"rms": results["rms"][0][:n_frames],
         "pitch": results["f0"][:n_frames],
-        **{f"spectral_contrast_{i+1}": results["spectral_contrast"][i][:n_frames] for i in range(results["spectral_contrast"].shape[0])},
-        **{f"chroma_{i+1}": results["chroma"][i][:n_frames] for i in range(results["chroma"].shape[0])}
+        **{f"spectral_contrast_{i+1}": results["spectral_contrast"][i][:n_frames] for i in range(results["spectral_contrast"].shape[0])}
+        #**{f"chroma_{i+1}": results["chroma"][i][:n_frames] for i in range(results["chroma"].shape[0])}
     })
  
-    print(f"[DEBUG] is_voiced shape: {is_voiced.shape}, n_frames: {n_frames}") 
-
 
 
     # 🧹 Filter by VAD mask
@@ -273,8 +285,14 @@ def run_librosa_identification(
     return df
 
 
-def normalize_audio_features(df, scale=True, scale_type="zscore", exclude_columns=["time", "is_voiced_raw","is_voiced"]):
-    from sklearn.preprocessing import StandardScaler, MinMaxScaler
+def normalize_audio_features(
+    df,
+    scale=True,
+    scale_type="zscore",  # ✅ Gemini recommendation
+    zero_handling="replace",  # ✅ Gemini recommendation
+    small_constant=1e-6,
+    exclude_columns=["time", "is_voiced_raw", "is_voiced"]
+):
     normalized_df = df.copy()
 
     numeric_cols = [
@@ -282,76 +300,88 @@ def normalize_audio_features(df, scale=True, scale_type="zscore", exclude_column
         if col not in exclude_columns and is_numeric_dtype(df[col])
     ]
 
-    if scale:
-        scaler = StandardScaler() if scale_type == "zscore" else MinMaxScaler()
-        normalized_df[numeric_cols] = scaler.fit_transform(normalized_df[numeric_cols])
+    if not scale:
+        return normalized_df
+
+    feature_matrix = normalized_df[numeric_cols].values
+
+    # ✅ Replace all-zero rows with a small constant to avoid distortions
+    if zero_handling == "replace":
+        zero_mask = np.abs(feature_matrix).sum(axis=1) < small_constant
+        feature_matrix[zero_mask] = small_constant
+
+    # ✅ Choose scaler based on type
+    if scale_type == "robust":
+        scaler = RobustScaler()
+    elif scale_type == "zscore":
+        scaler = StandardScaler()
+    else:
+        scaler = MinMaxScaler()
+
+    normalized_df[numeric_cols] = scaler.fit_transform(feature_matrix)
 
     return normalized_df
 
 
-def apply_time_agg(df, time_col="time", segment_col="new_segment_id", bin_size=.5, min_bin_size=1):
+def apply_time_agg(df, time_col="time", bin_size=1, min_bin_size=1):
     """
-    Aggregates frame-level audio features into time-based bins, ensuring segment integrity.
+    Aggregates frame-level audio features into time-based bins (no segment overlap constraints).
 
     Parameters:
         df (pd.DataFrame): Frame-level data with time and features.
-        time_col (str): Column name representing frame times.
-        segment_col (str): Column name representing segment grouping (overlap safe guard).
-        bin_size (float): Time bin size in seconds. If 0, aggregation is bypassed.
-        min_bin_size (int): Minimum records per (time_bin, segment_id) to be retained.
+        time_col (str): Column representing time in seconds.
+        bin_size (float): Size of each time bin (0 = return unbinned).
+        min_bin_size (int): Minimum number of frames per bin to retain.
 
     Returns:
-        pd.DataFrame: Aggregated and validated features with time midpoint and representative segment ID.
+        pd.DataFrame: Time-aggregated features with bin time and midpoint.
     """
     df.to_csv(r"C:\demo\interview\agg_input_debug.csv", index=False)
 
     if bin_size == 0:
-        # 🧯 Bypass aggregation and return frame-level data
-        df = df.rename(columns={time_col: "time"})
+        print('bin size 0 caught')
         df.to_csv(r"C:\demo\agg_0_bin_debug.csv", index=False)
         return df
 
-    # ⏱️ Create time bins
+    # ⏱ Create pure time bins (no segment constraint)
     df["time_bin"] = (np.floor(df[time_col] / bin_size) * bin_size).round(6)
 
-    # 🔐 Enforce segment boundary constraints
-    df["bin_key"] = df["time_bin"].astype(str) + "_" + df[segment_col].astype(str)
-
-    # 🧼 Exclude control/debug columns from aggregation
-    exclude_cols = {time_col, segment_col, "is_voiced", "is_voiced_raw", "time_bin", "bin_key"}
-    feature_cols = [col for col in df.columns if col not in exclude_cols]
-
-    # 🧮 Remove underpopulated (time_bin, segment_id) groups
-    bin_counts = df["bin_key"].value_counts()
+    # 🧼 Remove underpopulated bins
+    bin_counts = df["time_bin"].value_counts()
     valid_bins = bin_counts[bin_counts >= min_bin_size].index
-    df = df[df["bin_key"].isin(valid_bins)].copy()
+    df = df[df["time_bin"].isin(valid_bins)].copy()
 
     if df.empty:
-        raise ValueError("Aggregation failed: all (time_bin, segment) bins were underpopulated.")
+        raise ValueError("Aggregation failed: all bins under min_bin_size.")
 
-    # 🧩 Aggregate per (time_bin, segment)
-    grouped = df.groupby("bin_key")
+    # 🧼 Define features to aggregate (exclude control/meta columns)
+    exclude_cols = {
+        time_col, "segment_id", "new_segment_id", "is_voiced", "is_voiced_raw", "time_bin"
+    }
+    feature_cols = [col for col in df.columns if col not in exclude_cols]
+
+    # 🧮 Group by time_bin
+    grouped = df.groupby("time_bin")
     features_mean_df = grouped[feature_cols].mean()
     time_midpoint_df = grouped[time_col].mean().rename("time_midpoint")
-    segment_mode_df = grouped[segment_col].agg(
-        lambda x: x.mode().iloc[0] if not x.mode().empty else -1
-    ).rename(segment_col)
 
-    # 🧭 Extract bin time value from bin_key
-    time_bin_df = grouped["time_bin"].first().rename("time")
+    # 🆔 Optional: retain dominant segment IDs for metadata reference
+    segment_id_df = grouped["segment_id"].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else -1)
+    new_segment_id_df = grouped["new_segment_id"].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else -1)
 
-    # 🔗 Merge all components
-    final_df = pd.concat([segment_mode_df, time_bin_df, time_midpoint_df, features_mean_df], axis=1).reset_index(drop=True)
+    # 🧩 Combine all parts
+    final_df = pd.concat([
+        segment_id_df.rename("segment_id"),
+        new_segment_id_df.rename("new_segment_id"),
+        grouped["time_bin"].first().rename("time"),
+        time_midpoint_df,
+        features_mean_df
+    ], axis=1).reset_index(drop=True)
 
-    # 🔢 Ensure results are sorted by time
     final_df = final_df.sort_values("time").reset_index(drop=True)
-
-    # 🐞 Optional debug
     final_df.to_csv(r"C:\demo\interview\agg_output_debug.csv", index=False)
 
     return final_df
-
-
 
 
 def cluster_full_features(
@@ -363,30 +393,29 @@ def cluster_full_features(
     smoothing_window=5,
     use_umap=True,
 ):
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.decomposition import PCA
 
-    exclude = ["time", "new_segment_id", "time_midpoint","is_voiced", "is_voiced_raw"]
-    feature_cols = [col for col in df.columns if col not in exclude and np.issubdtype(df[col].dtype, np.number)]
+    df.to_csv(r"C:\demo\cluster_feature_matrix_input.csv", index=False)
+
+    exclude = ["time","segment_id", "new_segment_id", "time_midpoint","is_voiced_raw","is_voiced"]
+    feature_cols = [col for col in df.columns if col not in exclude]
     
     feature_matrix = df[feature_cols].fillna(0).values
-   
-    # Normalize
-    X_scaled = StandardScaler().fit_transform(feature_matrix)
 
+    pd.DataFrame(feature_matrix).to_csv(r"C:\demo\cluster_feature_matrix.csv", index=False)
+    
     # Dimensionality reduction (UMAP or passthrough)
     if use_umap:
         umap_params = {
-            "n_neighbors": 25,
-            "min_dist": 0.05,
+            "n_neighbors": 15,
+            "min_dist": 0.1,
             "n_components": 15,
             "metric": "cosine",
             "n_epochs": 200,
             "random_state": 69
         }
-        X_cluster = apply_umap(X_scaled, umap_params)
+        X_cluster = apply_umap(feature_matrix, umap_params)
     else:
-        X_cluster = X_scaled
+        X_cluster = feature_matrix
 
     n_interval = len(df)  # represents time-binned intervals 
 
@@ -403,24 +432,26 @@ def cluster_full_features(
     labels = clusterer.labels_
     if smooth_labels:
         labels = smooth_labels_fn(labels, window=smoothing_window)
-
+    
     # Add speaker IDs to output DataFrame
     clustered_df = df.copy()
     clustered_df["speaker_id"] = labels
+   
 
     # 2D projection for plotting
     if use_umap and X_cluster.shape[1] >= 2:
         clustered_df["x"] = X_cluster[:, 0]
         clustered_df["y"] = X_cluster[:, 1]
     else:
-        pca_fallback = PCA(n_components=2, random_state=69)
-        coords = pca_fallback.fit_transform(X_scaled)
+        pca_fallback = PCA(n_components=6, random_state=69)
+        coords = pca_fallback.fit_transform(X_cluster)
         clustered_df["x"] = coords[:, 0]
         clustered_df["y"] = coords[:, 1]
         print("📉 UMAP disabled — fallback PCA projection used for cluster plot.")
 
     # Speaker summary
     summary_df = clustered_df.groupby("speaker_id").size().reset_index(name="frame_count")
+    
     return clustered_df, summary_df
 
 
@@ -465,28 +496,35 @@ def apply_umap(X, params=None, verbose=True):
     )
 
     X_reduced = reducer.fit_transform(X)
+
+    
     if verbose:
         print(f"📉 UMAP applied → shape: {X_reduced.shape}")
     return X_reduced
 
 def assign_speakers_to_segments(clustered_df, segments):
     """
-    Assigns a dominant speaker ID to each Whisper segment based on frame-level clustering.
-    """
-    if "time" not in clustered_df.columns:
-        raise ValueError("clustered_df must contain a 'time' column in seconds")
+    Assigns a dominant speaker ID to each Whisper segment using majority vote 
+    from clustered frame-level speaker labels.
+    
+    Parameters:
+        clustered_df (pd.DataFrame): Must contain 'time' and 'speaker_id' columns.
+        segments (List[Dict]): List of Whisper segments (with 'start', 'end', 'id').
 
+    Returns:
+        List[Dict]: Segments with added 'speaker' label.
+    """
     labeled_segments = []
+    
     for segment in segments:
         start, end = segment["start"], segment["end"]
-
+        
+        # Select clustered frames within segment boundaries
         mask = (clustered_df["time"] >= start) & (clustered_df["time"] <= end)
-        speakers_in_segment = clustered_df.loc[mask, "speaker_id"]
-
-        if speakers_in_segment.empty:
-            assigned_speaker = -1
-        else:
-            assigned_speaker = int(speakers_in_segment.mode()[0])
+        matched_speakers = clustered_df.loc[mask, "speaker_id"]
+        
+        # Assign most frequent speaker label
+        assigned_speaker = int(matched_speakers.mode()[0]) if not matched_speakers.empty else -1
 
         segment_with_speaker = segment.copy()
         segment_with_speaker["speaker"] = assigned_speaker
@@ -494,33 +532,43 @@ def assign_speakers_to_segments(clustered_df, segments):
 
     return labeled_segments
 
+
 # ────────────────────────────────────────────────
 # Diarization Pipeline Helper Methods
 # ────────────────────────────────────────────────
 
 def tag_frames_with_segments(frames_df, segments, frame_time_col="time"):
     """
-    Tags each frame with a segments 'new_segment_id' value if the frame's time falls within a Whisper segment range [start, end).
-    Drops frames that do not match any segment.
+    Tags each frame with both:
+    - the merged `new_segment_id` (post-merge)
+    - the original Whisper `segment_id` (pre-merge)
+
+    Drops frames that do not fall within any segment window.
     """
     import pandas as pd
 
-    # 🐞 Optional: dump segments for debug
-    #pd.DataFrame(segments).to_csv(r"C:\demo\interview\tag_segments_input.csv", index=False)
     #pd.DataFrame(frames_df).to_csv(r"C:\demo\interview\tag_segments_frames_input.csv", index=False)
 
-    segment_ids = []
+    new_segment_ids = []
+    original_segment_ids = []
+
     for frame_time in frames_df[frame_time_col]:
-        match_id = next(
-            (seg["new_segment_id"] for seg in segments if seg["start"] <= frame_time < seg["end"]),
+        match = next(
+            (seg for seg in segments if seg["start"] <= frame_time < seg["end"]),
             None
         )
-        segment_ids.append(match_id)
+        if match:
+            new_segment_ids.append(match.get("new_segment_id"))
+            original_segment_ids.append(match.get("id"))
+        else:
+            new_segment_ids.append(None)
+            original_segment_ids.append(None)
 
     df_out = frames_df.copy()
-    df_out["new_segment_id"] = segment_ids
+    df_out["new_segment_id"] = new_segment_ids
+    df_out["segment_id"] = original_segment_ids
 
-    # 🧹 Drop frames with no segment match
     df_out = df_out[df_out["new_segment_id"].notna()].copy()
     pd.DataFrame(df_out).to_csv(r"C:\demo\tag_segments_output.csv", index=False)
+
     return df_out

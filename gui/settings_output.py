@@ -50,12 +50,13 @@ class SettingsOutputFrame(ttk.LabelFrame):
         button_group = ttk.Frame(self)
         button_group.grid(row=1, column=1, padx=(2, 5), pady=5, sticky="w")
 
-        # Browse Button
+         # Browse Button
         ttk.Button(
             button_group,
-            text="Browse",
-            command=browse_callback,
-            bootstyle=styles["output"]["button_browse"]
+            text="🔎",
+            width=3,
+            command=self.browse_callback,
+            style="IconInfo.TButton"
         ).grid(row=0, column=0, padx=(0, 4))
 
         # View Button (icon only)
@@ -64,7 +65,7 @@ class SettingsOutputFrame(ttk.LabelFrame):
             text="📂",
             width=3,
             command=view_callback,
-            bootstyle=styles["output"]["button_view"]
+            style="IconInfo.TButton"
         ).grid(row=0, column=1)
 
         # Output Format Label

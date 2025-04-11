@@ -45,9 +45,11 @@ class SettingsInputFrame(ttk.LabelFrame):
         # Browse Button
         ttk.Button(
             button_group,
-            text="Browse",
+            text="🔎",
+            width=3,
             command=self.browse_callback,
-            bootstyle=styles["input"]["button_browse"]
+            style="IconSuccess.TButton"
+
         ).grid(row=0, column=0, padx=(0, 4))
 
         # View Button (icon only)
@@ -56,7 +58,7 @@ class SettingsInputFrame(ttk.LabelFrame):
             text="📂",
             width=3,
             command=self.view_callback,
-            bootstyle=styles["input"]["button_view"]
+            style="IconSuccess.TButton"
         ).grid(row=0, column=1)
 
         # Row 2 – Language Label + Monitoring Toggle
