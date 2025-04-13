@@ -15,83 +15,83 @@ from concurrent.futures import ThreadPoolExecutor
 import umap
 from pathlib import Path
 import os
-from services.utils_perf import stage_timer
+from services.utils_debug import stage_timer, export_debug_csv
 from typing import Union
+import re
 
 
-def run_diarization_pipeline(audio_path, whisper_segments, return_summary_only=False, diagnostics=True):
+def run_diarization_pipeline(audio_path, whisper_segments, return_summary_only=False, diagnostics=True,ui_callback=None):
     diagnostics_snapshots = {}
     
 
-    with stage_timer("✅ Loading Audio Stage"):
-        # Load original audio
+    with stage_timer(" Load Audio",update_callback=ui_callback):
+        #Step 1: Load original audio
         y, sr = librosa.load(audio_path, sr=16000, mono=True)
 
-    with stage_timer("✅ Detect Voice Segments Stage"):
+    with stage_timer(" Detect Voice Segments",update_callback=ui_callback):
 
-        # Extract only voiced parts
+        #Step 2: Extract only voiced parts
         speech_timestamps, is_voiced = detect_voice_segments(y, sr=sr, return_mask=True)
         
         # Get frame_times BEFORE any filtering
         frame_times = librosa.frames_to_time(np.arange(len(is_voiced)), sr=sr, hop_length=160)
        
         # 🐞 Debug dump: frame index + time
-        frame_debug_df = pd.DataFrame({
-            "frame_index": np.arange(len(frame_times)),
-            "frame_time": frame_times
-        })
+        #frame_debug_df = pd.DataFrame({
+        #    "frame_index": np.arange(len(frame_times)),
+        #    "frame_time": frame_times
+        #})
         
-        frame_debug_df.to_csv(r"C:\demo\frame_times.csv", index=False)
+        #frame_debug_df.to_csv(r"C:\demo\frame_times.csv", index=False)
 
-    with stage_timer("✅ Feature Extraction Stage"):
-        # Step 1: Extract Librosa features (frame-level)
-        identify_audio_df = run_librosa_identification(y, sr=sr, is_voiced=is_voiced, frame_times=frame_times,log_power=2)
-
-        identify_audio_df.to_csv(r"C:\demo\normalize_input.csv", index=False)
-    with stage_timer("✅ Feature Normalization Stage"):
-        # Step 2: Normalize featuers
+    with stage_timer(" Feature Extraction",update_callback=ui_callback):
+        
+        #Step 3: Extract Librosa features (frame-level)
+        identify_audio_df = run_librosa_identification(y, sr=sr, is_voiced=is_voiced, frame_times=frame_times,log_power=1)
+    export_debug_csv(identify_audio_df,"get_features")
+        
+    with stage_timer(" Feature Normalization",update_callback=ui_callback):
+       
+        # Step 4: Normalize featuers
         identify_audio_df = normalize_audio_features(identify_audio_df, scale=True, scale_type="zscore")
+    export_debug_csv(identify_audio_df,"normalize_features")
 
-        identify_audio_df.to_csv(r"C:\demo\normalize_output.csv", index=False)
-    with stage_timer("✅ Segment Tagging Stage"):
-        #Setp 3 tag_frames_with_segments
+    with stage_timer(" Segment Tagging",update_callback=ui_callback):
+       
+        #Setp 5 tag_frames_with_segments
         identify_audio_df = tag_frames_with_segments(identify_audio_df, whisper_segments)
-    print()
+    export_debug_csv(identify_audio_df,"tag_frames")
 
-
-    with stage_timer("✅ Time Aggregation Stage"):    
-        #Step 4 apply time aggregation by second
+    with stage_timer(" Time Aggregation ",update_callback=ui_callback):    
+        #Step 6 apply time aggregation by second
         data_for_clustering = apply_time_agg(identify_audio_df,bin_size=1)
-
+    export_debug_csv(identify_audio_df,"agg_time")
         
 
-    with stage_timer("✅ Feature Clustering Stage"):
-        # Step 5: Perform clustering via HDBSCAN & UMAP on selected data
+    with stage_timer(" Feature Clustering",update_callback=ui_callback):
+        # Step 7: Perform clustering via HDBSCAN & UMAP on selected data
         clustered_df, speaker_summary = cluster_full_features(
             data_for_clustering,
             use_umap=True,
             min_cluster_size=max(5, int(0.02 * len(data_for_clustering))),
             min_samples=max(2, int(0.01 * len(data_for_clustering)))
         )
-
-    clustered_df.to_csv(r"C:\demo\cluster_df_output.csv", index=False)
+    export_debug_csv(identify_audio_df,"get_cluser")
+    
    
+    with stage_timer(" Post Processing",update_callback=ui_callback):
+        # Step 8: Post Processing Stage
+        labeled_segments = assign_speakers_to_segments(clustered_df, whisper_segments)
+        export_debug_csv(identify_audio_df,"asgn_speaker")
 
-    if diagnostics:
-        diagnostics_snapshots["frame_level_clustering"] = speaker_summary
+        result = {
+            "segments": labeled_segments,  # speaker-labeled Whisper segments
+            "cluster_data": clustered_df[["x", "y", "speaker_id"]].copy()
+        }
 
-    # Step 4: Map speaker labels back to Whisper segments
-    labeled_segments = assign_speakers_to_segments(clustered_df, whisper_segments)
-
-    # Step 5: Final output
-    result = {
-        "segments": labeled_segments,  # speaker-labeled Whisper segments
-        "cluster_data": clustered_df[["x", "y", "speaker_id"]].copy()
-    }
-
-
-    if diagnostics:
-        result["diagnostics"] = diagnostics_snapshots
+        if diagnostics:
+            diagnostics_snapshots["frame_level_clustering"] = speaker_summary
+            result["diagnostics"] = diagnostics_snapshots
 
     return result
 
@@ -143,13 +143,13 @@ def detect_voice_segments(
             frame_voiced[start_idx:end_idx + 1] = True
         
             # 📤 Export speech_timestamps to CSV
-        pd.DataFrame(speech_timestamps).to_csv(r"C:\demo\vad_segments.csv", index=False)
+        #pd.DataFrame(speech_timestamps).to_csv(r"C:\demo\vad_segments.csv", index=False)
 
         # 📤 Export frame_voiced mask to CSV (with index for reference)
-        pd.DataFrame({
-            "frame_index": np.arange(n_frames),
-            "is_voiced": frame_voiced.astype(int)  # Convert to 0/1 for readability
-        }).to_csv(r"C:\demo\vad_mask.csv", index=False)
+        #pd.DataFrame({
+        #   "frame_index": np.arange(n_frames),
+        #   "is_voiced": frame_voiced.astype(int)  # Convert to 0/1 for readability
+        #}).to_csv(r"C:\demo\vad_mask.csv", index=False)
 
         return speech_timestamps, frame_voiced
 
@@ -216,7 +216,6 @@ def run_librosa_identification(
         "is_voiced": is_voiced.astype(int),
         "frame_time": frame_times[:len(is_voiced)]  # Safe slice in case mismatch
     })
-    debug_df.to_csv(r"C:\demo\debug_lib_vad_mask.csv", index=False)
     print("[DEBUG] VAD mask dumped to CSV")
 
 
@@ -258,7 +257,6 @@ def run_librosa_identification(
     })
  
 
-
     # 🧹 Filter by VAD mask
     if isinstance(is_voiced, np.ndarray) and is_voiced.ndim == 1:
         # 🔍 Add both versions for debug dump
@@ -268,20 +266,14 @@ def run_librosa_identification(
         # 🧠 Optional debug
         print(f"[DEBUG] VAD mask True count: {np.sum(is_voiced)} / {len(is_voiced)}")
 
-        # 🧪 Dump full (pre-filtered) frame-level debug
-        #df.to_csv(r"C:\demo\interview\lib_output_full.csv", index=False)
-
         # ✅ Filter and return only voiced frames
         df_filtered = df[df["is_voiced"]].reset_index(drop=True)
 
         # 🧪 Save post-filter CSV
-        df_filtered.to_csv(r"C:\demo\interview\lib_output_mask.csv", index=False)
         print(f"[DEBUG] VAD mask applied: {df_filtered.shape[0]} voiced frames retained")
 
         return df_filtered
 
-    # In case no mask is applied (fallback)
-    #df.to_csv(r"C:\demo\interview\lib_output_nomask.csv", index=False)
     return df
 
 
@@ -323,7 +315,7 @@ def normalize_audio_features(
     return normalized_df
 
 
-def apply_time_agg(df, time_col="time", bin_size=1, min_bin_size=1):
+def apply_time_agg(df, time_col="time", bin_size=0, min_bin_size=1):
     """
     Aggregates frame-level audio features into time-based bins (no segment overlap constraints).
 
@@ -336,11 +328,9 @@ def apply_time_agg(df, time_col="time", bin_size=1, min_bin_size=1):
     Returns:
         pd.DataFrame: Time-aggregated features with bin time and midpoint.
     """
-    df.to_csv(r"C:\demo\interview\agg_input_debug.csv", index=False)
 
     if bin_size == 0:
         print('bin size 0 caught')
-        df.to_csv(r"C:\demo\agg_0_bin_debug.csv", index=False)
         return df
 
     # ⏱ Create pure time bins (no segment constraint)
@@ -379,7 +369,6 @@ def apply_time_agg(df, time_col="time", bin_size=1, min_bin_size=1):
     ], axis=1).reset_index(drop=True)
 
     final_df = final_df.sort_values("time").reset_index(drop=True)
-    final_df.to_csv(r"C:\demo\interview\agg_output_debug.csv", index=False)
 
     return final_df
 
@@ -393,8 +382,6 @@ def cluster_full_features(
     smoothing_window=5,
     use_umap=True,
 ):
-
-    df.to_csv(r"C:\demo\cluster_feature_matrix_input.csv", index=False)
 
     exclude = ["time","segment_id", "new_segment_id", "time_midpoint","is_voiced_raw","is_voiced"]
     feature_cols = [col for col in df.columns if col not in exclude]
@@ -530,6 +517,9 @@ def assign_speakers_to_segments(clustered_df, segments):
         segment_with_speaker["speaker"] = assigned_speaker
         labeled_segments.append(segment_with_speaker)
 
+        assign_speaker_df = pd.DataFrame(labeled_segments) 
+        assign_speaker_df.to_csv(r"C:\demo\assign_speakers_output.csv", index=False)
+
     return labeled_segments
 
 
@@ -569,6 +559,44 @@ def tag_frames_with_segments(frames_df, segments, frame_time_col="time"):
     df_out["segment_id"] = original_segment_ids
 
     df_out = df_out[df_out["new_segment_id"].notna()].copy()
-    pd.DataFrame(df_out).to_csv(r"C:\demo\tag_segments_output.csv", index=False)
 
     return df_out
+
+def split_whisper_segments(whisper_segments_df):
+    """
+    Splits all Whisper segments in the DataFrame into individual sentence-level segments.
+    Uses punctuation boundaries to identify sentence ends. Time is proportionally distributed.
+    
+    Parameters:
+        whisper_segments_df (pd.DataFrame): Original Whisper segments with 'id', 'start', 'end', 'text'
+    
+    Returns:
+        pd.DataFrame: New sentence-level segments with 'id', 'original_id', 'start', 'end', 'text'
+    """
+
+    expanded_rows = []
+
+    for _, row in whisper_segments_df.iterrows():
+        text = row["text"].strip()
+        sentences = re.split(r'(?<=[.?!])\s+(?=[A-Z])', text)
+
+        if len(sentences) <= 1:
+            expanded_rows.append(row.to_dict())
+            continue
+
+        total_duration = row["end"] - row["start"]
+        n = len(sentences)
+        avg_duration = total_duration / n
+
+        for i, sentence in enumerate(sentences):
+            new_start = row["start"] + i * avg_duration
+            new_end = row["start"] + (i + 1) * avg_duration
+            expanded_rows.append({
+                "id": f"{row['id']}_{i}",
+                "original_id": row["id"],
+                "start": round(new_start, 3),
+                "end": round(new_end, 3),
+                "text": sentence.strip()
+            })
+
+    return pd.DataFrame(expanded_rows)

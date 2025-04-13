@@ -3,7 +3,7 @@
 import tkinter as tk
 import ttkbootstrap as ttk
 from tkinter import filedialog
-from services.constants import LANGUAGE_MAP
+from cfg.conf_main import LANGUAGE_MAP
 
 
 class SettingsInputFrame(ttk.LabelFrame):

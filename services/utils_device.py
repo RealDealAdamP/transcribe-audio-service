@@ -1,6 +1,6 @@
 # File: transcribe_audio_service/services/utils_device.py
 import torch 
-from services.constants import BATCH_SIZE_THRESHOLDS
+from cfg.conf_main import BATCH_SIZE_THRESHOLDS
 import psutil
 import platform
 

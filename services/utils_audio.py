@@ -3,7 +3,7 @@
 import subprocess
 import tempfile
 import os
-from services.constants import SUPPORTED_AUDIO_EXTENSIONS
+from cfg.conf_main import SUPPORTED_AUDIO_EXTENSIONS
 
 
 def prep_whisper_audio(path, temp_dir, target_sr=16000, bitrate="32k"):

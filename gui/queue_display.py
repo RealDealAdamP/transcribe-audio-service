@@ -11,13 +11,18 @@ class QueueFrame(ttk.LabelFrame):
     def __init__(self, parent, on_select_file_callback, on_double_click_file_callback, on_refresh_click=None,on_reset_queue=None, styles=None, **kwargs):
         super().__init__(parent, text="", bootstyle=styles["queue"]["frame"], padding=10, **kwargs)
         self.styles = styles
+        # Animation state for cluster plot
+        self.cluster_animation_running = False
+        self.cluster_animation_label = None
+
+
         self.grid_rowconfigure(1, weight=1, minsize=310) 
         # ────────────────
         # Top-Left Refresh Button (now in col 0)
         if on_refresh_click:
             ttk.Button(self, 
-                       text="⟳",
-                       style="IconWarning.TButton", 
+                       text="↻",
+                       style="IconWarning.TButton",
                        width=3, 
                        command=on_refresh_click).grid(row=0, column=0, sticky="nw", padx=4, pady=5)
         
@@ -85,21 +90,30 @@ class QueueFrame(ttk.LabelFrame):
                                     
 
         # ────────────────
-        # Listboxes
-        self.listbox_queue = tk.Listbox(self, width=40, height=15)
-        self.listbox_queue.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+        # Wrapper frame to hold both listboxes + scrollbar
+        queue_frame_wrapper = ttk.Frame(self)
+        queue_frame_wrapper.grid(row=1, column=1, columnspan=3, sticky="nsew", padx=5, pady=5)
+        
+
+        # Transcribe Queue listbox
+        self.listbox_queue = tk.Listbox(queue_frame_wrapper, width=40, height=20)
+        self.listbox_queue.grid(row=0, column=0, sticky="nsew")
         self.listbox_queue.bind("<Double-1>", on_double_click_file_callback)
         self.listbox_queue.bind("<<ListboxSelect>>", on_select_file_callback)
         self.listbox_queue.bind("<MouseWheel>", self.sync_scroll)
 
-        self.status_queue = tk.Listbox(self, width=15, height=15)
-        self.status_queue.grid(row=1, column=2, padx=5, pady=5, sticky="nsew")
+        # Status Queue listbox
+        self.status_queue = tk.Listbox(queue_frame_wrapper, width=15, height=20)
+        self.status_queue.grid(row=0, column=1, sticky="nsew")
         self.status_queue.bind("<MouseWheel>", self.sync_scroll)
 
-        # Shared scrollbar (col 3)
-        scrollbar = ttk.Scrollbar(self, orient="vertical")
-        scrollbar.config(command=lambda *args: (self.listbox_queue.yview(*args), self.status_queue.yview(*args)))
-        scrollbar.grid(row=1, column=3, sticky="nsew")
+        # Shared vertical scrollbar
+        scrollbar = ttk.Scrollbar(queue_frame_wrapper, orient="vertical")
+        scrollbar.grid(row=0, column=2, sticky="ns")
+        scrollbar.config(command=lambda *args: (
+            self.listbox_queue.yview(*args),
+            self.status_queue.yview(*args))
+        )
 
         self.listbox_queue.config(yscrollcommand=scrollbar.set)
         self.status_queue.config(yscrollcommand=scrollbar.set)
@@ -287,97 +301,131 @@ class QueueFrame(ttk.LabelFrame):
         else:
             self.output_scroll_h.pack_forget()
 
-    def display_cluster_plot(self, filename):
-       
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-        import matplotlib.pyplot as plt
 
-        # ─── Static Cluster Directory ───────────────
+    def display_cluster_plot(self, filename):
         cluster_dir = Path("cluster_data")
         stem = Path(filename).stem
         cluster_path = cluster_dir / f"{stem}_umap.feather"
 
-        # ─── Clear Old Plot (if any) ────────────────
         for widget in self.cluster_plot_frame.winfo_children():
             widget.destroy()
 
-        # ─── No Data Handling ───────────────────────
         if not cluster_path.exists():
-            label = ttk.Label(
-                self.cluster_plot_frame,
-                text="❌ No Cluster Data Available",
-                font=("Courier New", 10),
-                background="#191919",
-                foreground="white",
-                anchor="center",
-                justify="center"
-            )
-            label.pack(expand=True, fill="both")
+            self.set_cluster_status("❌ Cluster Data Missing")
             return
 
-        # ─── Load Cluster Data ──────────────────────
-        df = pd.read_feather(cluster_path)
+        self._render_cluster_plot(cluster_path)
+        self.cluster_animation_running = False
 
-       # ─── Create Matplotlib Plot ─────────────────
+    def _render_cluster_plot(self, cluster_path):
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        import pandas as pd
+
+        df = pd.read_feather(cluster_path)
         fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
         fig.patch.set_facecolor("#191919")
         ax.set_facecolor("#191919")
         ax.tick_params(colors='white')
         ax.set_title("", color="white", fontname="Courier New")
 
-        # Unique speakers
         unique_labels = sorted(df["speaker_id"].unique())
         cmap = plt.get_cmap("tab10")
-        scatter_handles = []
 
         for idx, label in enumerate(unique_labels):
-            label_mask = df["speaker_id"] == label
+            mask = df["speaker_id"] == label
             color = cmap(idx % 10)
-            label_name = f"Speaker {label}" if label != -1 else "Unidentified"
+            ax.scatter(df.loc[mask, "x"], df.loc[mask, "y"], color=color, s=18, alpha=0.8, linewidths=0)
 
-            ax.scatter(
-                df.loc[label_mask, "x"],
-                df.loc[label_mask, "y"],
-                color=color,
-                s=18,
-                alpha=0.8,
-                linewidths=0
-            )
+        legend_handles = [
+            plt.Line2D([], [], marker='o', color='none', markerfacecolor=cmap(idx % 10),
+                    markeredgecolor='none', markersize=8, linestyle='None',
+                    label=f"Speaker {label}" if label != -1 else "Unidentified")
+            for idx, label in enumerate(unique_labels)
+        ]
+        ax.legend(handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, -0.15),
+                ncol=2, fontsize=10, frameon=False, labelcolor="white")
 
-            # Collect legend handles
-            scatter_handles.append(
-                plt.Line2D(
-                    [], [], marker='o', color='none',
-                    markerfacecolor=color, markeredgecolor='none',
-                    markersize=8, linestyle='None', label=label_name
-                )
-            )
-
-        # ─── Legend (placed below plot, outside loop) ─────────────────
-        legend = ax.legend(
-            handles=scatter_handles,
-            loc="upper center",
-            bbox_to_anchor=(0.5, -0.15),
-            ncol=2,
-            fontsize=10,
-            frameon=False,
-            labelcolor="white"
-        )
-
-        # ─── Aesthetic Tweaks ─────────────────
-        ax.set_xticklabels([])  # Hide X axis numbers
-        ax.set_yticklabels([])  # Hide Y axis numbers
-        ax.grid(False)          # Disable grid
+        ax.set_xticklabels([]), ax.set_yticklabels([]), ax.grid(False)
         for spine in ax.spines.values():
-            spine.set_edgecolor("white")  # Match background #191919
-
+            spine.set_edgecolor("white")
 
         fig.tight_layout(pad=1.0)
-
-        # ─── Embed Plot in Tkinter ──────────────────
         canvas = FigureCanvasTkAgg(fig, master=self.cluster_plot_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
         self.cluster_plot_canvas = canvas
         plt.close(fig)
+
+
+
+    def set_cluster_status(self, text, animate=False):
+        # Clear existing widgets
+        for widget in self.cluster_plot_frame.winfo_children():
+            widget.destroy()
+
+        self.cluster_animation_running = animate
+        self.cluster_animation_dots = 0
+        self.cluster_animation_base_text = text.lstrip("⏳✅❌⚠️").strip()
+
+        # New Frame to hold ⏳ and text separately
+        wrapper = ttk.Frame(self.cluster_plot_frame, style="TFrame")
+        wrapper.pack(expand=True, fill="both", pady=(10, 0))
+
+        # Static "⏳" symbol
+        self.cluster_icon_label = ttk.Label(
+            wrapper,
+            text="⏳",
+            font=("Courier New", 12),
+            background="#060606",
+            foreground="white",
+            anchor="center"
+        )
+        self.cluster_icon_label.pack(side="left", padx=(10, 5))
+
+        # Dynamic status text label
+        self.cluster_animation_label = ttk.Label(
+            wrapper,
+            text=self.cluster_animation_base_text,
+            font=("Courier New", 10),
+            background="#060606",
+            foreground="white",
+            anchor="w",
+            justify="left"
+        )
+        self.cluster_animation_label.pack(side="left", fill="x", expand=True)
+
+        if animate:
+            self._run_cluster_animation()
+
+
+    def _run_cluster_animation(self):
+        if not self.cluster_animation_running or not self.cluster_animation_label:
+            return
+
+        try:
+            dots = "." * (self.cluster_animation_dots % 4)
+            self.cluster_animation_label.config(text=f"{self.cluster_animation_base_text}{dots}")
+            self.cluster_animation_dots += 1
+            self.after(500, self._run_cluster_animation)
+        except (tk.TclError, AttributeError):
+            self.cluster_animation_running = False
+            self.cluster_animation_label = None   
+
+    def show_cluster_placeholder(self, message="❌ No Cluster Data Available"):
+        for widget in self.cluster_plot_frame.winfo_children():
+            widget.destroy()
+
+        label = ttk.Label(
+            self.cluster_plot_frame,
+            text=message,
+            font=("Courier New", 10),
+            background="#191919",
+            foreground="white",
+            anchor="center",
+            justify="center"
+        )
+        label.pack(expand=True, fill="both")
+
+    

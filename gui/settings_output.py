@@ -2,7 +2,7 @@
 
 import tkinter as tk
 import ttkbootstrap as ttk
-from services.constants import SUPPORTED_OUTPUT_EXTENSIONS
+from cfg.conf_main import SUPPORTED_OUTPUT_EXTENSIONS
 
 class SettingsOutputFrame(ttk.LabelFrame):
     def __init__(

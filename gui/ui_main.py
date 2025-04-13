@@ -15,7 +15,7 @@ from gui.service_controls import ServiceControlsFrame
 from gui.device_monitor import DeviceMonitorFrame
 import pandas as pd
 from pathlib import Path
-from gui.style_config import get_theme_style, get_bootstyles
+from cfg.conf_style import get_theme_style, get_bootstyles
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import tempfile
@@ -415,11 +415,11 @@ class TranscribeApp:
                     language=self.language,
                     translate_to_english=self.translate_to_english
                 )
-
+                
                 # Merge segments *before* passing to diarization pipeline
                 segments = result.get("segments", [])
                 # 🐞 Optional: dump segments for debug
-                #pd.DataFrame(segments).to_csv(r"C:\demo\get_whisper_segments.csv", index=False, float_format="%.8f")
+                pd.DataFrame(segments).to_csv(r"C:\demo\get_whisper_segments.csv", index=False, float_format="%.8f")
 
                 if segments:
                     merged_segments = find_new_seg_id(segments)
@@ -427,36 +427,24 @@ class TranscribeApp:
                     
                     
                 if self.use_diarization:
+
+                    # Only trigger cluster Animation status if this file is selected in UI
+                    selection = self.listbox_queue.curselection()
+                    is_selected = selection and self.listbox_queue.get(selection[0]) == filename
+                    ui_callback = self.queue_frame.set_cluster_status if is_selected else None
+
                     diarization_result = run_diarization_pipeline(
                         audio_mp3_path,
                         result["segments"],
-                        diagnostics=True
+                        diagnostics=True,
+                        ui_callback = ui_callback
                     )
-
-
-
-                # 📁 Output directory
-                debug_dir = Path(r"C:\demo\diarization_debug")
-                debug_dir.mkdir(parents=True, exist_ok=True)
-
-                # 🧪 Save each part of the pipeline to separate CSVs
-                for key in ['segments', 'cluster_data', 'diagnostics']:
-                    value = diarization_result.get(key)
-                    if isinstance(value, (list, pd.DataFrame)):
-                        try:
-                            df = pd.DataFrame(value)
-                            out_path = debug_dir / f"{key}.csv"
-                            df.to_csv(out_path, index=False)
-                            print(f"✅ Saved {key} → {out_path}")
-                        except Exception as e:
-                            print(f"⚠️ Could not save {key}: {e}")
-
-
-
+    
                    # Step 1: Overwrite final speaker-labeled segments
                     result["segments"] = diarization_result["segments"]
-                    
-                    pd.DataFrame(result).to_csv(r"C:\demo\diarize_result.csv", index=False, float_format="%.8f")
+                    pd.DataFrame(result["segments"]).to_csv(r"C:\demo\get_post_diarize_segments.csv", index=False, float_format="%.8f")
+
+
 
                     # Step 2: Save cluster data to file (for UI scatter plot)
                     cluster_df = diarization_result.get("cluster_data")
@@ -505,6 +493,11 @@ class TranscribeApp:
                 self.status_queue.delete(i)
                 self.status_queue.insert(i, "Completed")
                 any_transcribed = True
+
+                # 🧠 Check if this is the currently selected file
+                current_selection = self.listbox_queue.curselection()
+                if current_selection and self.listbox_queue.get(current_selection[0]) == filename:
+                    self.queue_frame.display_cluster_plot(filename)
 
             except Exception as e:
                 self.stop_processing_animation()
@@ -571,7 +564,7 @@ class TranscribeApp:
 
 
     def on_select_file(self, event):
-        selection = event.widget.curselection()  # event.widget is a tk.Listbox at runtime, not recognized in VS code
+        selection = event.widget.curselection()
         if not selection:
             return
 
@@ -579,21 +572,28 @@ class TranscribeApp:
         filename = self.listbox_queue.get(index)
         status = self.status_queue.get(index)
         transcript_path = os.path.join(self.output_dir, f"{os.path.splitext(filename)[0]}.{self.output_extension}")
-    
-        self.queue_frame.display_cluster_plot(filename)
+
         self.output_box.config(state="normal")
         self.output_box.delete("1.0", tk.END)
 
-
+        # Final display logic centralized here
         if status == "Completed" and os.path.exists(transcript_path):
             output_text = load_output_file(transcript_path)
             self.output_box.insert(tk.END, output_text)
+            self.queue_frame.display_cluster_plot(filename)
 
         elif status == "Error":
             error_msg = self.error_messages.get(filename, "An unknown error occurred.")
             self.output_box.insert(tk.END, f"Transcription Error:\n{error_msg}")
+            self.queue_frame.set_cluster_status("❌ No Cluster Data Available")
+
+        elif status == "Processing...":
+            self.output_box.insert(tk.END, "File is currently being processed...")
+            self.queue_frame.set_cluster_status("⏳ Cluster Data Loading", animate=True)
+
         else:
             self.output_box.insert(tk.END, "No Transcription Detected")
+            self.queue_frame.set_cluster_status("❌ No Cluster Data Available")
 
         self.output_box.config(state="disabled")
 
@@ -633,21 +633,24 @@ class TranscribeApp:
     #File processing ... animation methods    
     def start_processing_animation(self, row_index):
         self.processing_animation_running = True
-        self.processing_row_index = row_index  # 👈 track which row we're animating
+        self.processing_row_index = row_index
         self.processing_dots = 0
+
+    
 
         def animate():
             if not self.processing_animation_running:
                 return
             if self.processing_row_index >= self.status_queue.size():
-                return  #  end early if out of range
+                return
+
             dots = "." * (self.processing_dots % 4)
             current_text = f"Processing{dots}"
             try:
                 self.status_queue.delete(self.processing_row_index)
                 self.status_queue.insert(self.processing_row_index, current_text)
             except Exception:
-                return  # Row may no longer exist (edge case)
+                return
 
             self.processing_dots += 1
             self.root.after(500, animate)
@@ -656,6 +659,7 @@ class TranscribeApp:
 
     def stop_processing_animation(self):
         self.processing_animation_running = False
+
 
 
     def set_scroll_bar_h_viz(self):

@@ -2,7 +2,7 @@
 
 from ttkbootstrap import Label, Progressbar, Toplevel
 from services.utils_device import GPU_AVAILABLE, GPU_INFO
-from gui.style_config import get_theme_style, get_bootstyles
+from cfg.conf_style import get_theme_style, get_bootstyles
 from services.version import __version__
 
 
@@ -40,25 +40,37 @@ class SplashScreen:
         # ─── Title Label ─────────────────────────────
         self.title_label = Label(
             self.splash,
-            text="Transcribe Audio Service",
+            text=f"Transcribe Audio Service\nv{__version__}",
             font=self.fonts["label"],
             bootstyle=self.bootstyles.get("label_title", "info"),
+            background="#191919",
             anchor="center",
             justify="center"
         )
         self.title_label.pack(pady=(20, 10))
 
         # ─── GPU Info Display ────────────────────────
-        gpu_text = (
-            f"✔ GPU_AVAILABLE = True\n🧠 GPU Info: {GPU_INFO}"
-            if GPU_AVAILABLE else
-            f"❌ GPU_AVAILABLE = False\n🔍 {GPU_INFO.get('error', 'Unavailable')}"
-        )
+       
+        if GPU_AVAILABLE:
+            gpu_text = (
+                "✔ GPU_AVAILABLE = True\n"
+                f"✔ GPU: {GPU_INFO.get('name', 'Unknown')}\n"
+                f"✔ VRAM: {GPU_INFO.get('total_memory_MB', '???')} MB\n"
+                f"✔ Driver: {GPU_INFO.get('driver_version', '???')}\n"
+                f"✔ CUDA: {GPU_INFO.get('cuda_version', '???')}"
+            )
+        else:
+            gpu_text = (
+                "❌ GPU_AVAILABLE = False\n"
+                f"{GPU_INFO.get('error', 'Unavailable')}"
+            )
+        
         self.text_label = Label(
             self.splash,
             text=gpu_text,
             font=self.fonts["label"],
             bootstyle=self.bootstyles.get("label_status", "secondary"),
+            background="#191919",
             justify="center"
         )
         self.text_label.pack(pady=(0, 15))
@@ -73,6 +85,19 @@ class SplashScreen:
         )
         self.progress.pack(pady=(0, 20))
         self.progress.start(10)
+
+        #-------Footer
+
+        self.footer_label = Label(
+            self.splash,
+            text="© Farns Co. 2025\nMIT License\nOpen use permitted with attribution",
+            style=self.bootstyles.get("label_footer", "secondary"),
+            background="#191919",
+            font=("Courier New", 9),
+            justify="center"
+        )
+        self.footer_label.pack(pady=(10, 5))
+
 
     def set_progress(self, value):
         if self.progress:

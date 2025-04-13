@@ -1,6 +1,7 @@
 # File: transcribe_audio_service/main.py
 from ttkbootstrap import Window
 from gui.ui_splash import SplashScreen
+from services.version import __version__
 
 if __name__ == "__main__":
     from services.dependency_check import check_dependencies
@@ -10,8 +11,8 @@ if __name__ == "__main__":
     root = Window(themename="darkly")
 
     # 🖼️ Pre-set main window geometry (but keep hidden for now)
-    root.geometry("1400x900")
-    root.title("Transcribe Audio Service")
+    root.geometry("1400x950")
+    root.title(f"Transcribe Audio Service v{__version__}")
     root.resizable(False, False)
     root.update_idletasks()  # Ensure winfo_* methods return correct values
     root.withdraw()          # Hide until splash completes

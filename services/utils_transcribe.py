@@ -3,7 +3,7 @@ import os
 from services.utils_models import get_whisper_model
 import datetime
 from tinytag import TinyTag
-from services.constants import LANGUAGE_MAP
+from cfg.conf_main import LANGUAGE_MAP
 from services.utils_output import SAVE_OUTPUT_FUNCTIONS
 import pandas as pd
 import re

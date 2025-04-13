@@ -1,4 +1,4 @@
-# File: services/constants.py
+# File: cfg/conf_main.py
 
 WHISPER_MODELS = {
     "tiny":    {"default": "tiny",    "en": "tiny.en"},

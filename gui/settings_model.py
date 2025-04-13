@@ -2,7 +2,7 @@
 
 import ttkbootstrap as ttk
 import torch
-from services.constants import WHISPER_MODELS, MODEL_VRAM_REQUIREMENTS
+from cfg.conf_main import WHISPER_MODELS, MODEL_VRAM_REQUIREMENTS
 
 
 class SettingsModelFrame(ttk.LabelFrame):

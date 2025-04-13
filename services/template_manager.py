@@ -5,7 +5,7 @@ import json
 import csv
 from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
-from services.constants import FORMATS_REQUIRING_TEMPLATES, SUPPORTED_OUTPUT_EXTENSIONS
+from cfg.conf_main import FORMATS_REQUIRING_TEMPLATES, SUPPORTED_OUTPUT_EXTENSIONS
 
 
 class TemplateManager:

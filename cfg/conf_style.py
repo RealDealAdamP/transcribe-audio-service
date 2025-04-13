@@ -1,4 +1,4 @@
-# File: gui/style_config.py
+# File: cfg/conf_style.py
 
 import ttkbootstrap as ttk
 import tkinter.font as tkfont
@@ -46,8 +46,9 @@ dark:Typically a dark gray color
         "splash": {
             "frame": "dark",
             "label_title": "info",
-            "label_status": "secondary",
-            "progressbar": "primary-striped"
+            "label_status": "success",
+            "label_footer": "success",  # ← NEW: subtle gray/neutral style
+            "progressbar": "warning-striped"
         },
         
         "input": {
