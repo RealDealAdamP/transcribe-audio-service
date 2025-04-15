@@ -56,7 +56,7 @@ class SettingsOutputFrame(ttk.LabelFrame):
             text="🔎",
             width=3,
             command=self.browse_callback,
-            style="IconInfo.TButton"
+            style="IconPrimary.TButton"
         ).grid(row=0, column=0, padx=(0, 4))
 
         # View Button (icon only)
@@ -65,7 +65,7 @@ class SettingsOutputFrame(ttk.LabelFrame):
             text="📂",
             width=3,
             command=view_callback,
-            style="IconInfo.TButton"
+            style="IconPrimary.TButton"
         ).grid(row=0, column=1)
 
         # Output Format Label

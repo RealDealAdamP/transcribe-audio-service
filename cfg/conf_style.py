@@ -15,6 +15,7 @@ def get_theme_style():
     style.configure("IconInfo.TButton", font=icon_font, foreground="#9933cc", background=bg)
     style.configure("IconWarning.TButton", font=icon_font, foreground="#ff8803", background=bg)
     style.configure("IconDanger.TButton", font=icon_font, foreground="red", background=bg)
+    style.configure("IconPrimary.TButton", font=icon_font, foreground="#2A9FD6", background=bg)
 
     fonts = {
         "label": tkfont.Font(size=11, weight="bold"),
@@ -45,9 +46,9 @@ dark:Typically a dark gray color
 
         "splash": {
             "frame": "dark",
-            "label_title": "info",
+            "label_title": "primary",
             "label_status": "success",
-            "label_footer": "success",  # ← NEW: subtle gray/neutral style
+            "label_footer": "warning",  # ← NEW: subtle gray/neutral style
             "progressbar": "warning-striped"
         },
         
@@ -65,14 +66,14 @@ dark:Typically a dark gray color
             "scale_interval": "success"              
         },
         "output": {
-            "frame": "info",
-            "label_output_dir": "info",
+            "frame": "primary",
+            "label_output_dir": "primary",
             "entry_output_dir": "secondary",
-            "button_browse": "info",
-            "button_view": "info",
-            "label_output_fmt": "info",
-            "dropdown_output_fmt": "info",
-            "check_translate": "info-round-toggle"  
+            "button_browse": "primary",
+            "button_view": "primary",
+            "label_output_fmt": "primary",
+            "dropdown_output_fmt": "primary",
+            "check_translate": "primary-round-toggle"  
         },
         "model": {
             "frame": "warning",

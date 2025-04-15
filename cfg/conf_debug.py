@@ -6,6 +6,7 @@ DEBUG_DATA_TRANS = {
     "normalize_features": False,
     "tag_frames": False,
     "agg_time": False,
+	"ft_matrix": False,
     "get_cluser": False,
     "asgn_speaker": False,
 

@@ -36,18 +36,11 @@ def run_diarization_pipeline(audio_path, whisper_segments, return_summary_only=F
         # Get frame_times BEFORE any filtering
         frame_times = librosa.frames_to_time(np.arange(len(is_voiced)), sr=sr, hop_length=160)
        
-        # 🐞 Debug dump: frame index + time
-        #frame_debug_df = pd.DataFrame({
-        #    "frame_index": np.arange(len(frame_times)),
-        #    "frame_time": frame_times
-        #})
-        
-        #frame_debug_df.to_csv(r"C:\demo\frame_times.csv", index=False)
 
     with stage_timer(" Feature Extraction",update_callback=ui_callback):
         
         #Step 3: Extract Librosa features (frame-level)
-        identify_audio_df = run_librosa_identification(y, sr=sr, is_voiced=is_voiced, frame_times=frame_times,log_power=1)
+        identify_audio_df = run_librosa_identification(y, sr=sr, is_voiced=is_voiced, frame_times=frame_times,log_power=2)
     export_debug_csv(identify_audio_df,"get_features")
         
     with stage_timer(" Feature Normalization",update_callback=ui_callback):
@@ -142,14 +135,6 @@ def detect_voice_segments(
             end_idx = int(np.ceil(ts['end'] * sr / hop_length))
             frame_voiced[start_idx:end_idx + 1] = True
         
-            # 📤 Export speech_timestamps to CSV
-        #pd.DataFrame(speech_timestamps).to_csv(r"C:\demo\vad_segments.csv", index=False)
-
-        # 📤 Export frame_voiced mask to CSV (with index for reference)
-        #pd.DataFrame({
-        #   "frame_index": np.arange(n_frames),
-        #   "is_voiced": frame_voiced.astype(int)  # Convert to 0/1 for readability
-        #}).to_csv(r"C:\demo\vad_mask.csv", index=False)
 
         return speech_timestamps, frame_voiced
 
@@ -167,7 +152,7 @@ def run_librosa_identification(
     n_mfcc=25,
     n_mels=40,
     fmax=4000,
-    log_power=1  # 💡 New: log power exponent (1 = normal, >1 = emphasized, <1 = disallowed)
+    log_power=1  # log power exponent (1 = normal, >1 = emphasized, <1 = disallowed)
 ):
 
     timings = {}
@@ -387,8 +372,8 @@ def cluster_full_features(
     feature_cols = [col for col in df.columns if col not in exclude]
     
     feature_matrix = df[feature_cols].fillna(0).values
-
-    pd.DataFrame(feature_matrix).to_csv(r"C:\demo\cluster_feature_matrix.csv", index=False)
+    export_debug_csv(pd.DataFrame(feature_matrix),"ft_matrix")
+    
     
     # Dimensionality reduction (UMAP or passthrough)
     if use_umap:
@@ -518,7 +503,6 @@ def assign_speakers_to_segments(clustered_df, segments):
         labeled_segments.append(segment_with_speaker)
 
         assign_speaker_df = pd.DataFrame(labeled_segments) 
-        assign_speaker_df.to_csv(r"C:\demo\assign_speakers_output.csv", index=False)
 
     return labeled_segments
 
@@ -537,7 +521,6 @@ def tag_frames_with_segments(frames_df, segments, frame_time_col="time"):
     """
     import pandas as pd
 
-    #pd.DataFrame(frames_df).to_csv(r"C:\demo\interview\tag_segments_frames_input.csv", index=False)
 
     new_segment_ids = []
     original_segment_ids = []

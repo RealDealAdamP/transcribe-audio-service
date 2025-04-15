@@ -27,6 +27,9 @@ from services.utils_diarize import run_diarization_pipeline
 from services.utils_output import load_output_file, save_cluster_data
 from services.version import __version__
 from services.template_manager import TemplateManager
+import re
+from copy import deepcopy
+
 
 
 class TranscribeApp:
@@ -418,8 +421,8 @@ class TranscribeApp:
                 
                 # Merge segments *before* passing to diarization pipeline
                 segments = result.get("segments", [])
-                # 🐞 Optional: dump segments for debug
-                pd.DataFrame(segments).to_csv(r"C:\demo\get_whisper_segments.csv", index=False, float_format="%.8f")
+                #  dump segments for debug
+                #pd.DataFrame(segments).to_csv(r"C:\demo\get_whisper_segments.csv", index=False, float_format="%.8f")
 
                 if segments:
                     merged_segments = find_new_seg_id(segments)
@@ -442,10 +445,12 @@ class TranscribeApp:
     
                    # Step 1: Overwrite final speaker-labeled segments
                     result["segments"] = diarization_result["segments"]
-                    pd.DataFrame(result["segments"]).to_csv(r"C:\demo\get_post_diarize_segments.csv", index=False, float_format="%.8f")
+                    #pd.DataFrame(result["segments"]).to_csv(r"C:\demo\get_post_diarize_segments.csv", index=False, float_format="%.8f")
 
-
-
+                   # Step 1.5: Handle Speaker Overlap 
+                    result["segments"] = self.resolve_speaker_overlap(result["segments"])
+                    #pd.DataFrame(result["segments"]).to_csv(r"C:\demo\get_post_diarize_segments_Overlap.csv", index=False, float_format="%.8f")
+                    
                     # Step 2: Save cluster data to file (for UI scatter plot)
                     cluster_df = diarization_result.get("cluster_data")
                     if cluster_df is not None:
@@ -691,7 +696,73 @@ class TranscribeApp:
         except Exception as e:
             messagebox.showerror("Error Opening Directory", str(e))
 
-     
+
+    def resolve_speaker_overlap(self, segments):
+        """
+        Detects when a speaker shift occurs between consecutive segments that share the same
+        new_segment_id. If the next row contains multiple sentences, splits off the last sentence.
+        """
+        resolved = []
+        i = 0
+
+        while i < len(segments):
+            current = deepcopy(segments[i])
+            next_row = segments[i + 1] if i + 1 < len(segments) else None
+
+            # Default: just keep current as-is
+            resolved.append(current)
+
+            if (
+                next_row and
+                current["new_segment_id"] == next_row["new_segment_id"] and
+                current["speaker"] != next_row["speaker"]
+            ):
+                text = next_row["text"].strip()
+                # Split into sentences (keep punctuation)
+                sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
+
+                if len(sentences) > 1:
+                    total_chars = sum(len(s) for s in sentences)
+                    first_chars = sum(len(s) for s in sentences[:-1])
+                    duration = next_row["end"] - next_row["start"]
+                    split_point = next_row["start"] + duration * (first_chars / total_chars)
+
+                    # First part stays with original new_segment_id and previous speaker
+                    main_row = deepcopy(next_row)
+                    main_row["id"] = f"{next_row['id']}_a"
+                    main_row["text"] = " ".join(sentences[:-1])
+                    main_row["end"] = round(split_point, 3)
+                    main_row["speaker"] = current["speaker"]  # Carry over previous speaker
+
+                    # Second part goes to a new segment id and next speaker
+                    split_row = {
+                        "id": f"{next_row['id']}_b",
+                        "seek": next_row.get("seek"),
+                        "start": round(split_point, 3),
+                        "end": next_row["end"],
+                        "text": sentences[-1].strip(),
+                        "tokens": [],
+                        "temperature": next_row.get("temperature"),
+                        "avg_logprob": next_row.get("avg_logprob"),
+                        "compression_ratio": next_row.get("compression_ratio"),
+                        "no_speech_prob": next_row.get("no_speech_prob"),
+                        "new_segment_id": next_row["new_segment_id"] + 1,  # bump segment
+                        "speaker": next_row["speaker"]
+                    }
+
+                    resolved.append(main_row)
+                    resolved.append(split_row)
+                    i += 2  # Skip next_row since we handled it
+                    continue
+
+            i += 1
+
+        return resolved
+
+
+
+
+        
 
     # ────────────────────────────────────────────────
     # UI Property Accessors

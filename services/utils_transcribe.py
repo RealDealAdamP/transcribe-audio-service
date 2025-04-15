@@ -96,15 +96,16 @@ def save_transcript(
     raw_text = result.get("text", "")
     segments = result.get("segments", [])
     
-    df = apply_diarize_labels({"segments": segments, "text": raw_text})
+    df = apply_diarize_time({"segments": segments, "text": raw_text})
    
-    pd.DataFrame(df).to_csv(r"C:\demo\apply_diarize_labels.csv", index=False, float_format="%.8f")
+    pd.DataFrame(df).to_csv(r"C:\demo\apply_diarize_time.csv", index=False, float_format="%.8f")
     
-    #apply speaker labels to raw text
+    # Apply speaker labels to raw text
     if use_diarization and df is not None:
         diarized_lines = []
         for _, row in df.iterrows():
-            speaker_label = "[Speaker]"  # You can replace with actual mapping later
+            speaker_id = row.get("speaker", "Unknown")
+            speaker_label = f"[Speaker {speaker_id}]"
             line = f"{speaker_label} {row['text'].strip()}"
             diarized_lines.append(line)
         raw_text = "\n".join(diarized_lines)
@@ -187,7 +188,7 @@ def qualifies_for_batch_processing(file_path, use_diarization):
         return False  # Fail safe: assume no
     
 
-def apply_diarize_labels(result):
+def apply_diarize_time(result):
 
     """New time format Required for SRT / VTT compatability 
     for now we apply the same irrespective of output format"""
@@ -203,6 +204,7 @@ def apply_diarize_labels(result):
             "end": seg["end"],
             "start_time": start_time,
             "end_time": end_time,
+            "speaker": seg["speaker"],
             "text": seg["text"]
         })
 
