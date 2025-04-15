@@ -96,11 +96,11 @@ def save_transcript(
     raw_text = result.get("text", "")
     segments = result.get("segments", [])
     
-    # Initialize df based on whether diarization is enabled
-    if use_diarization:
-        df = apply_diarize_time({"segments": segments, "text": raw_text})
-    else:
-        df = pd.DataFrame(segments) if segments else None
+    df = apply_segment_timing(
+        {"segments": segments, "text": raw_text},
+        use_diarization=use_diarization,
+        output_format=output_format
+    )
     
     # Apply speaker labels to raw text
     if use_diarization and df is not None:
@@ -190,27 +190,39 @@ def qualifies_for_batch_processing(file_path, use_diarization):
         return False  # Fail safe: assume no
     
 
-def apply_diarize_time(result):
-
-    """New time format Required for SRT / VTT compatability 
-    for now we apply the same irrespective of output format"""
+def apply_segment_timing(result, use_diarization=False, output_format="txt"):
+    """
+    Formats Whisper segments with timing and optional speaker info.
+    Applies logic based on diarization and output format.
+    """
 
     segments = result.get("segments", [])
-    diarize_labels = []
+    formatted_segments = []
+
+    # Exit early unless we explicitly need timing
+    if not use_diarization and output_format.lower() not in ("srt", "vtt"):
+        return None
+
     for seg in segments:
         start_time = format_time(seg["start"])
         end_time = format_time(seg["end"])
-        diarize_labels.append({
-            "id": seg["id"],
-            "start": seg["start"],
-            "end": seg["end"],
+
+        segment_data = {
+            "id": seg.get("id"),
+            "start": seg.get("start"),
+            "end": seg.get("end"),
             "start_time": start_time,
             "end_time": end_time,
-            "speaker": seg["speaker"],
-            "text": seg["text"]
-        })
+            "text": seg.get("text", "")
+        }
 
-    return pd.DataFrame(diarize_labels)
+        # Only include speaker if diarization is enabled and present
+        if use_diarization and "speaker" in seg:
+            segment_data["speaker"] = seg["speaker"]
+
+        formatted_segments.append(segment_data)
+
+    return pd.DataFrame(formatted_segments) if formatted_segments else None
 
 def format_time(seconds):
     """Convert float seconds to SRT time format (HH:MM:SS,mmm)."""
