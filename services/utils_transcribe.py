@@ -96,9 +96,11 @@ def save_transcript(
     raw_text = result.get("text", "")
     segments = result.get("segments", [])
     
-    df = apply_diarize_time({"segments": segments, "text": raw_text})
-   
-    pd.DataFrame(df).to_csv(r"C:\demo\apply_diarize_time.csv", index=False, float_format="%.8f")
+    # Initialize df based on whether diarization is enabled
+    if use_diarization:
+        df = apply_diarize_time({"segments": segments, "text": raw_text})
+    else:
+        df = pd.DataFrame(segments) if segments else None
     
     # Apply speaker labels to raw text
     if use_diarization and df is not None:
